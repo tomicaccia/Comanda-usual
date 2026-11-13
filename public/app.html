@@ -341,6 +341,8 @@ td.r,th.r{text-align:right}
 .planilla-paper th.logo{font:800 34px/1 Arial,Helvetica,sans-serif;letter-spacing:.04em}
 .planilla-paper tr.pl-p th{border-top:2px solid #111;font-size:11px}
 .planilla-paper tr.pl-h th{border-bottom:2px solid #111}
+.planilla-paper td.cc{text-align:center}
+.planilla-paper.pl-sol tr.pl-h th{border-top:2px solid #111}
 .planilla-paper td.n{text-align:right}
 .planilla-paper tbody td:first-child{white-space:nowrap}
 .planilla-paper tr.nb td{border-top:2px solid #111}
@@ -453,6 +455,12 @@ tbody tr[class*="dist-"]:hover td{background:color-mix(in srgb,var(--dc) 12%,var
 .parc-r{display:grid;grid-template-columns:auto 70px auto;gap:6px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:12.5px}
 .parc-r input{font:600 13px var(--f-mono);background:var(--surface);border:1px solid var(--line-2);border-radius:6px;color:var(--ink);padding:4px 6px;width:100%}
 .parc-r small{color:var(--muted);font:500 11.5px var(--f-mono)}
+.tablewrap.pagos td small{color:var(--muted);font-size:11.5px}
+.tablewrap.pagos td.ttl{font-weight:600}
+.tablewrap.pagos td.red{font-weight:700;color:var(--ok)}
+.tablewrap.pagos tr.cero td{color:var(--faint)}
+.tablewrap.pagos tr.ptot td{font-weight:700;border-top:2px solid var(--line-2);background:var(--surface-2)}
+.tablewrap.pagos td.r,.tablewrap.pagos th.r{font-family:var(--f-mono)}
 .dist{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px;align-items:start}
 .dcol{background:var(--surface);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;min-width:0;overflow:hidden}
 .dhead{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
@@ -510,7 +518,7 @@ const PROCESOS = [
   {k:"laser",    n:"Grabado láser", corto:"Lás", lineas:["sol"]},
   {k:"torno",    n:"Torno",     corto:"Tor", lineas:["receta","sol"]},
   {k:"lentillas",n:"Lentillas", corto:"Len", lineas:["receta"]},
-  {k:"ensamblado", n:"Ensamblado", corto:"Ens", lineas:["receta"]},
+  {k:"ensamblado", n:"Ensamblado", corto:"Ens", lineas:["receta","sol"]},
   {k:"despacho", n:"Despacho", corto:"Desp", lineas:["receta","sol"]},
 ];
 /* Procesos con tres etapas en una sola pestaña: Lista → En proceso → Terminadas */
@@ -524,12 +532,13 @@ const GRUPOS = {
     hintProc:"Cuando la caja vuelve del torno, tocá “Marcar entregada”.",
     vaciaLista:"Las cajas nuevas aparecen acá apenas se cargan.",
     termSub:"que ya volvieron de torno", termVacia:"Cuando marques una caja como entregada, aparece acá." },
-  ensamblado: { tab:"ensamblado", n:"Ensamblado", lineas:["receta"], ini:"ensEnv", fin:"ensRec", sust:"ensamblado", lista:"Lista para ensamblar", resp:ENSAMB, respCol:"Ensamblador", respVerbo:"Ensambla",
-    req: c => ENS_REQ.find(k=>!done(c,k)) || null, reqTxt:"Para ensamblar necesita Frentes, Patillas y Lentillas.",
+  ensamblado: { tab:"ensamblado", n:"Ensamblado", lineas:["receta","sol"], ini:"ensEnv", fin:"ensRec", sust:"ensamblado", lista:"Lista para ensamblar", resp:ENSAMB, respCol:"Ensamblador", respVerbo:"Ensambla",
+    req: c => (lineaDe(c) === "sol" ? ["frentes","patillas"] : ENS_REQ).find(k=>!done(c,k)) || null, reqTxt:"Para ensamblar necesita Frentes y Patillas (y Lentillas en receta).",
     accionFin:"terminó ensamblado y pasó a Despacho",
     hintLista:"Elegí el ensamblador y tocá “Empezar ensamblado”. La caja pasa a En proceso con ese responsable.",
     hintProc:"Al terminar el ensamblado, la caja sale de todos los procesos y queda solo en Despacho.",
-    vaciaLista:"Una caja aparece acá cuando tiene Frentes, Patillas y Lentillas terminados.",
+    hintProcSol:"Al terminar el ensamblado, la caja suma para el pago del ensamblador. En sol sigue en los demás procesos hasta completarlos y después pasa a Despacho.",
+    vaciaLista:"Una caja aparece acá cuando tiene Frentes y Patillas terminados (en receta, también Lentillas).",
     termSub:"con ensamblado terminado, esperando despacho", termVacia:"Cuando termines una caja en “En proceso”, aparece acá hasta que se despache." },
 };
 const STAGES = {};
@@ -544,7 +553,7 @@ const RX = /^([A-Z0-9]{2})-(\d{8})-(\d{3})(?:-(\d{1,2}))?$/;
 const PAGE = 60;
 
 const S = { tab: "frentes", q: "", cajas: new Map(), loaded: false, stale: false, error: null,
-  db: null, user: null, uid: null, canWrite: true, busy: new Set(), sel: new Set(), bulkBusy: null, insumos: new Map(), insMovs: [], insVer: {}, est: { modo: "pedido", desde: "", hasta: "", linea: "todas", dist: "", modelo: "", color: "", lente: "", base: "", cajas: [], key: "", loading: false }, man: { codigo: "", rows: [{ color: "", seg: "", cant: "" }], lista: [], creando: null }, plVista: "previa", baseSel: {}, rep: { desde: "", hasta: "", resp: "", key: "", rows: [], loading: false, unsub: null }, filtroProc: {}, stock: new Map(), movs: [], carritos: { receta: { items: [], bultoActual: 1, cliente: "", remito: "", fecha: "", cats: {} }, sol: { items: [], bultoActual: 1, cliente: "", remito: "", fecha: "", cats: {} } }, linea: "receta", planillas: [], verPlanilla: false, confirmDesp: false, confirmVaciar: false, despBusy: null, printPed: null, printFmt: "a4x10", printExcl: new Set(), creado: null, info: new Set(), editInfo: null, editRows: [], shown: PAGE, resp: {}, recent: [], drawer: null, names: {} };
+  db: null, user: null, uid: null, canWrite: true, busy: new Set(), sel: new Set(), bulkBusy: null, pago: { desde: "", hasta: "", key: "", rows: [], loading: false, unsub: null, todos: false }, precios: { receta: 80, sol: 50 }, insumos: new Map(), insMovs: [], insVer: {}, est: { modo: "pedido", desde: "", hasta: "", linea: "todas", dist: "", modelo: "", color: "", lente: "", base: "", cajas: [], key: "", loading: false }, man: { codigo: "", rows: [{ color: "", seg: "", cant: "" }], lista: [], creando: null }, plVista: "previa", baseSel: {}, rep: { desde: "", hasta: "", resp: "", key: "", rows: [], loading: false, unsub: null }, filtroProc: {}, stock: new Map(), movs: [], carritos: { receta: { items: [], bultoActual: 1, cliente: "", remito: "", fecha: "", cats: {} }, sol: { items: [], bultoActual: 1, cliente: "", remito: "", fecha: "", cats: {} } }, linea: "receta", planillas: [], verPlanilla: false, confirmDesp: false, confirmVaciar: false, despBusy: null, printPed: null, printFmt: "a4x10", printExcl: new Set(), creado: null, info: new Set(), editInfo: null, editRows: [], shown: PAGE, resp: {}, recent: [], drawer: null, names: {} };
 Object.defineProperty(S, "carrito", { get(){ return S.carritos[S.linea]; }, set(v){ S.carritos[S.linea] = v; } });
 try { const l = localStorage.getItem("cu.linea"); if (l === "sol" || l === "receta") S.linea = l; } catch(e) {}
 S.etapas = {ensamblado:"lista", torno:"lista"}; S.vista = "grilla";
@@ -563,7 +572,7 @@ const done = (c,k) => { if (GRUPOS[k]) k = GRUPOS[k].fin; return !!(c.procesos &
 const lineaDe = c => /^S/i.test(String(c.codigo||"")) ? "sol" : "receta";
 const enLinea = c => lineaDe(c) === S.linea;
 const tabsLinea = () => PROCESOS.filter(p => p.lineas.includes(S.linea));
-const SOL_REQ = ["frentes","patillas","calibrado","laser","tornoEnt"];
+const SOL_REQ = ["frentes","patillas","calibrado","laser","tornoEnt","ensRec"];
 const aplica = (p,c) => (!p.lineas || p.lineas.includes(lineaDe(c))) && (!p.aplica || p.aplica(c));
 const proc = k => STAGES[k] || PROCESOS.find(p => p.k === k);
 const curProc = () => { const g = GRUPOS[S.tab]; if (g){ const e = S.etapas[g.tab]; return e === "terminadas" ? null : e === "proceso" ? g.P : g.L; } return proc(S.tab); };
@@ -572,10 +581,10 @@ const estado = (g,c) => done(c,g.fin) ? "terminada" : done(c,g.ini) ? "proceso" 
 function bloqueo(p,c){
   if (p.k === "despacho") return lineaDe(c) === "sol" ? (SOL_REQ.find(k => !done(c,k)) || null) : done(c,"ensRec") ? null : "ensRec";
   if (p.grupo){ const g = p.grupo;
-    if (g.tab !== "ensamblado" && done(c,"ensRec")) return "vuelta";
+    if (g.tab !== "ensamblado" && lineaDe(c) === "receta" && done(c,"ensRec")) return "vuelta";
     if (p.etapa === "lista") return g.req(c) || null;
     return done(c,g.ini) ? null : g.ini; }
-  if (done(c,"ensRec")) return "vuelta";
+  if (lineaDe(c) === "receta" && done(c,"ensRec")) return "vuelta";
   if (p.requiere && !done(c,p.requiere)) return p.requiere;
   return null;
 }
@@ -605,6 +614,7 @@ function renderTabs(){
     + `<button data-tab="seguimiento" class="${S.tab==="seguimiento"?"on":""}">Seguimiento<span class="n">${activas}</span></button>`
     + `<button data-tab="estadisticas" class="${S.tab==="estadisticas"?"on":""}">Estadísticas</button>`
     + `<button data-tab="insumos" class="${S.tab==="insumos"?"on":""}">Fundas y cajas</button>`
+    + `<button data-tab="pagos" class="${S.tab==="pagos"?"on":""}">Pago ensambladores</button>`
     + (S.linea==="sol" ? `<button data-tab="stock" class="${S.tab==="stock"?"on":""}">Stock de lentes</button>` : "")
     + `<button data-tab="imprimir" class="${S.tab==="imprimir"?"on":""}">Stickers y rótulos</button>`
     + `<button data-tab="alta" class="${S.tab==="alta"?"on":""}">+ Cargar pedido</button>`;
@@ -707,7 +717,7 @@ function renderProceso(p){
       ${p.etapa==="proceso"&&p.grupo.resp?`<select id="procResp" aria-label="Filtrar por ${esc(p.grupo.respCol)}"><option value="">Todos (${esc(p.grupo.respCol.toLowerCase())})</option>${[...new Set([...p.grupo.resp, ...all.map(c=>c.procesos[p.grupo.ini]&&c.procesos[p.grupo.ini].r).filter(Boolean)])].map(r=>`<option value="${esc(r)}" ${fr===r?"selected":""}>${esc(r)} (${all.filter(c=>(c.procesos[p.grupo.ini]&&c.procesos[p.grupo.ini].r)===r).length})</option>`).join("")}</select>`:""}
       ${p.resp?`<select id="resp" class="${needResp?"need":""}" aria-label="Responsable"><option value="">${esc(p.respLabel||"Elegí responsable…")}</option>${p.resp.map(r=>`<option ${S.resp[p.k]===r?"selected":""}>${esc(r)}</option>`).join("")}</select>`:""}
     </div>
-    ${p.k==="calibrado"?`<div class="hint">En cada caja elegí la base de cada cristal: ves cuánto stock queda de esa base. Al calibrar se descuenta solo.</div>`:p.etapa==="lista"?`<div class="hint">${esc(p.grupo.hintLista)}</div>`:p.etapa==="proceso"?`<div class="hint">${esc(p.grupo.hintProc)}</div>`:p.resp?`<div class="hint">El responsable elegido se guarda con cada caja que termines.</div>`:""}
+    ${p.k==="calibrado"?`<div class="hint">En cada caja elegí la base de cada cristal: ves cuánto stock queda de esa base. Al calibrar se descuenta solo.</div>`:p.etapa==="lista"?`<div class="hint">${esc(p.grupo.hintLista)}</div>`:p.etapa==="proceso"?`<div class="hint">${esc((S.linea==="sol"&&p.grupo.hintProcSol)||p.grupo.hintProc)}</div>`:p.resp?`<div class="hint">El responsable elegido se guarda con cada caja que termines.</div>`:""}
     ${body}
     ${recent.length?`<h3 class="sub">${p.etapa==="lista"?"Empezadas recién":"Terminadas recién"}</h3><div class="tablewrap"><table><thead><tr><th>Caja</th><th>Hora</th>${p.resp?"<th>Responsable</th>":""}<th></th></tr></thead><tbody>${recent.map(r=>`<tr><td class="c">${esc(r.codigo)}</td><td>${esc(r.hora)}</td>${p.resp?`<td>${esc(r.r||"")}</td>`:""}<td><button class="btn" style="padding:4px 10px" data-undo="${esc(r.codigo)}" data-k="${p.k}">Deshacer</button></td></tr>`).join("")}</tbody></table></div>`:""}`;
 }
@@ -1172,6 +1182,18 @@ const CATS = [
   {id:"P4", p:"P4", n:"Translúcido + Cristal"}, {id:"P7", p:"P7", n:"Compacto + aplique/diseño"}, {id:"P8", p:"P8", n:"TR + aplique/diseño"},
   {id:"XC", p:"", n:"Extras CON CARGO"}, {id:"XS", p:"", n:"Extras SIN CARGO"} ];
 const CAT_IDS = CATS.map(c => c.id);
+const CATS_SOL = [ {id:"POL", p:"", n:"Polarizado"}, {id:"REV", p:"", n:"Revo"}, {id:"DEG", p:"", n:"Degrade"} ];
+const CAT_X = CATS.filter(c => c.id === "XC" || c.id === "XS");
+function autoCatSol(txt){ const t = String(txt || ""); return /revo/i.test(t) ? "REV" : /degrad/i.test(t) ? "DEG" : "POL"; }
+const esSolPl = meta => (meta && meta.linea) === "sol";
+/* Columnas de la planilla: receta P1–P8 + extras; sol Polarizado/Revo/Degrade (+ extras solo si hay) + Color */
+function layoutPl(meta, L){
+  if (!esSolPl(meta)) return { sol: false, cats: CATS, color: false, bultoN: "Numero de bulto", w: [31,17,25,25,...CATS.map(()=>19.5),19.5] };
+  const cats = [...CATS_SOL, ...CAT_X.filter(c => L.some(l => l.cat === c.id))];
+  const w = [36,16,32,32,...cats.map(()=>24),34,20]; const f = 273.5 / w.reduce((a,b)=>a+b,0);
+  return { sol: true, cats, color: true, bultoN: "Bulto", w: w.map(v => +(v*f).toFixed(2)) };
+}
+function columnasPl(lay){ return ["Numero de caja","Modelo","Frente","Patilla",...lay.cats.map(c=>c.n),...(lay.color?["Color"]:[]),lay.bultoN]; }
 function autoCat(txt){
   const t = String(txt || "");
   const tr = /\btr\b|transl|fantas/i.test(t), cr = /cristal/i.test(t), ap = /aplique|dise[ñn]o/i.test(t);
@@ -1199,11 +1221,12 @@ function agregarAlCarrito(codes){
 }
 function clienteSugerido(){
   const cnt = {}; for (const it of S.carrito.items){ const c = cajaDe(it); if (!c) continue; const k = String(c.cliente||"").replace(/^S/,"0"); cnt[k] = (cnt[k]||0) + 1; }
-  const best = Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0]; return best ? String(parseInt(best[0],10) || best[0]) : "";
+  const best = Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0]; if (!best) return ""; const n = parseInt(best[0],10);
+  return isNaN(n) ? best[0] : S.linea === "sol" ? String(n).padStart(2,"0") : String(n);
 }
 function metaPlanilla(){
   const C = S.carrito;
-  return { cliente: C.cliente || clienteSugerido(), remito: C.remito || "", fecha: C.fecha || today(), insumos: insumosEnviados(C.insumos), extras: (C.extras || []).filter(e => String(e.desc||"").trim() && Number(e.cant) > 0).map(e => ({ desc: String(e.desc).trim(), cant: Number(e.cant) })) };
+  return { linea: S.linea, cliente: C.cliente || clienteSugerido(), remito: C.remito || "", fecha: C.fecha || today(), insumos: insumosEnviados(C.insumos), extras: (C.extras || []).filter(e => String(e.desc||"").trim() && Number(e.cant) > 0).map(e => ({ desc: String(e.desc).trim(), cant: Number(e.cant) })) };
 }
 function lineasPlanilla(){
   const C = S.carrito; const out = [];
@@ -1211,53 +1234,56 @@ function lineasPlanilla(){
     lineasCaja(c).forEach((l,i) => { const key = it.codigo + "#" + i;
       const cantP = it.parcial ? (Number(it.parcial[i]) || 0) : (Number(l.cant) || 0); if (it.parcial && !cantP) return;
       out.push({ key, orden, codigo: c.codigo, modelo: String(parseInt(c.modelo,10) || c.modelo), frente: l.frente, patilla: l.patilla, cant: cantP,
-        cat: (C.cats||{})[key] || l.tipo || autoCat(l.frente), bulto: it.bulto ?? "" }); }); });
+        color: l.cristal || "", cat: (C.cats||{})[key] || l.tipo || (S.linea === "sol" ? autoCatSol(l.cristal) : autoCat(l.frente)), bulto: it.bulto ?? "" }); }); });
   return out.sort((a,b) => (Number(a.bulto)||0) - (Number(b.bulto)||0) || a.orden - b.orden);
 }
-const totalesCat = L => Object.fromEntries(CAT_IDS.map(id => [id, L.filter(l=>l.cat===id).reduce((a,l)=>a+l.cant,0)]));
+const totalesCat = (L, cats = CATS) => Object.fromEntries(cats.map(c => [c.id, L.filter(l=>l.cat===c.id).reduce((a,l)=>a+l.cant,0)]));
 const fechaAR = iso => { const [y,m,d] = String(iso).split("-"); return d && m && y ? `${d}/${m}/${y}` : iso; };
 
 /* PDF apaisado como la planilla actual */
 function conInsumos(meta, L){ return [...L, ...((meta && meta.extras) || []).map((e,i) => ({ key: "ext-" + i, codigo: e.desc, modelo: "", frente: "", patilla: "", cant: Number(e.cant) || 0, cat: "XC", bulto: "", extra: true })), ...((meta && meta.insumos) || []).map(i => ({ key: "ins-" + i.id, codigo: "", modelo: "", frente: i.nombre, patilla: "", cant: Number(i.cant) || 0, cat: "XS", bulto: "", insumo: true }))]; }
 function pdfPlanilla(meta, L){ L = conInsumos(meta, L);
+  const lay = layoutPl(meta, L), cats = lay.cats, nc = cats.length;
   const d = PdfDoc(297, 210); const m = 8, rh = 4.6;
-  const cols = [["Numero de caja",31],["Modelo",17],["Frente",25],["Patilla",25],...CATS.map(c=>[c.n,19.5]),["Numero de bulto",19.5]];
+  const cols = columnasPl(lay).map((t,i) => [t, lay.w[i]]); const n = cols.length;
   const xs = []; let acc = m; for (const [,w] of cols){ xs.push(acc); acc += w; } const W = acc - m; xs.push(m + W);
-  const T = totalesCat(L);
+  const T = totalesCat(L, cats); const hayP = cats.some(c => c.p);
+  const mid = (i, j = i + 1) => (xs[i] + xs[j]) / 2;
   const cabecera = (primera) => {
     let y = m; d.gray(0).dash(false).lw(0.3);
     if (primera){
       d.lw(0.5).rect(m, y, W, 20).lw(0.3);
-      d.line(m, y+6, m+48, y+6); d.line(m+31, y, m+31, y+20); d.line(m+48, y, m+48, y+20);
-      d.font(true, 7).text("Numero De Cliente", m+15.5, y+4, "center").font(true, 10).text(meta.cliente, m+39.5, y+4.3, "center");
-      d.font(true, 7).text("Numero de Remito", m+15.5, y+13.5, "center").font(true, 12).text(meta.remito || "", m+39.5, y+14, "center");
-      d.font(true, 26).text("USUAL", (m+48 + xs[11])/2, y+12, "center");
-      d.line(xs[11], y, xs[11], y+20); d.line(xs[12], y, xs[12], y+20);
-      d.font(true, 9).text("Fecha", (xs[11]+xs[12])/2, y+11.5, "center").font(true, 10).text(fechaAR(meta.fecha), (xs[12]+xs[13])/2, y+11.5, "center");
+      d.line(m, y+6, xs[2], y+6); d.line(xs[1], y, xs[1], y+20); d.line(xs[2], y, xs[2], y+20);
+      d.font(true, 7).text("Numero De Cliente", mid(0), y+4, "center").font(true, 10).text(meta.cliente, mid(1), y+4.3, "center");
+      d.font(true, 7).text("Numero de Remito", mid(0), y+13.5, "center").font(true, 12).text(meta.remito || "", mid(1), y+14, "center");
+      if (!lay.sol) d.font(true, 26).text("USUAL", mid(2, n-2), y+12, "center");
+      d.line(xs[n-2], y, xs[n-2], y+20); d.line(xs[n-1], y, xs[n-1], y+20);
+      d.font(true, 9).text("Fecha", mid(n-2), y+11.5, "center").font(true, 10).text(fechaAR(meta.fecha), mid(n-1), y+11.5, "center");
       y += 20;
     }
-    d.lw(0.3); d.rect(m, y, W, 5); CATS.forEach((c,i) => { if (c.p) d.font(true, 8).text(c.p, xs[4+i] + 9.75, y+3.6, "center"); });
-    for (let i = 4; i <= 12; i++) d.line(xs[i], y, xs[i], y+5);
-    y += 5; d.lw(0.5).rect(m, y, W, 9).lw(0.3);
+    if (hayP){ d.lw(0.3); d.rect(m, y, W, 5); cats.forEach((c,i) => { if (c.p) d.font(true, 8).text(c.p, mid(4+i), y+3.6, "center"); });
+      for (let i = 4; i <= 4 + nc; i++) d.line(xs[i], y, xs[i], y+5); y += 5; }
+    d.lw(0.5).rect(m, y, W, 9).lw(0.3);
     cols.forEach(([t,w],i) => { const parts = t.length > 14 ? (t.includes("+") ? [t.split("+")[0].trim()+" +", t.split("+")[1].trim()] : t.split(/ (?=\S+$)/)) : [t];
-      parts.forEach((pt,k) => d.font(true, 7).text(pt, xs[i] + w/2, y + (parts.length===1 ? 5.6 : 3.8 + k*3.4), "center")); if (i) d.line(xs[i], y, xs[i], y+9); });
+      parts.forEach((pt,k) => d.font(true, lay.sol ? 8 : 7).text(pt, xs[i] + w/2, y + (parts.length===1 ? 5.6 : 3.8 + k*3.4), "center")); if (i) d.line(xs[i], y, xs[i], y+9); });
     return y + 9;
   };
-  d.addPage(); let y = cabecera(true); let bultoPrev = null;
+  d.addPage(); let y = cabecera(true); let bultoPrev = null; const fs = lay.sol ? 7.5 : 7;
   for (const l of L){
     if (y + rh > 210 - m - 9){ d.addPage(); y = cabecera(false); bultoPrev = null; }
     if (bultoPrev !== null && l.bulto !== bultoPrev){ d.lw(0.5).line(m, y, m+W, y).lw(0.3); }
     bultoPrev = l.bulto;
-    d.font(false, 7).text(l.codigo, xs[0]+1, y+3.3).text(l.modelo, xs[2]-1, y+3.3, "right").text(l.frente, xs[2]+1, y+3.3).text(l.patilla, xs[3]+1, y+3.3);
-    const ci = CAT_IDS.indexOf(l.cat); if (ci >= 0) d.text(String(l.cant), xs[5+ci]-1, y+3.3, "right");
-    d.text(String(l.bulto), xs[13]-1, y+3.3, "right");
-    d.line(m, y, m, y+rh); for (let i = 1; i <= 13; i++) d.line(xs[i], y, xs[i], y+rh);
+    d.font(false, fs).text(l.codigo, xs[0]+1, y+3.3).text(l.modelo, xs[2]-1, y+3.3, "right").text(l.frente, xs[2]+1, y+3.3).text(l.patilla, xs[3]+1, y+3.3);
+    const ci = cats.findIndex(c => c.id === l.cat); if (ci >= 0) d.text(String(l.cant), lay.sol ? mid(4+ci) : xs[5+ci]-1, y+3.3, lay.sol ? "center" : "right");
+    if (lay.color) d.text(l.color || "", xs[4+nc]+1, y+3.3);
+    d.text(String(l.bulto), xs[n]-1, y+3.3, "right");
+    d.line(m, y, m, y+rh); for (let i = 1; i <= n; i++) d.line(xs[i], y, xs[i], y+rh);
     y += rh; d.line(m, y, m+W, y);
   }
   d.lw(0.6).rect(m, y, W, 8).lw(0.3);
-  d.font(true, 11).text("Total", (xs[0]+xs[4])/2, y+5.6, "center");
-  CATS.forEach((c,i) => { d.font(true, 10).text(String(T[c.id]), xs[4+i]+9.75, y+5.6, "center"); d.line(xs[4+i], y, xs[4+i], y+8); });
-  d.line(xs[12], y, xs[12], y+8);
+  d.font(true, 11).text("Total", mid(0, 4), y+5.6, "center");
+  cats.forEach((c,i) => { if (!lay.sol || T[c.id]) d.font(true, 10).text(String(T[c.id]), mid(4+i), y+5.6, "center"); d.line(xs[4+i], y, xs[4+i], y+8); });
+  for (let i = 4 + nc; i < n; i++) d.line(xs[i], y, xs[i], y+8);
   return d.bytes();
 }
 
@@ -1279,31 +1305,32 @@ function zipStore(files){
   const all = [...parts, ...central, end]; const out = new Uint8Array(all.reduce((a,b)=>a+b.length,0)); let p = 0; for (const b of all){ out.set(b, p); p += b.length; } return out;
 }
 function xlsxPlanilla(meta, L){ L = conInsumos(meta, L);
+  const lay = layoutPl(meta, L), cats = lay.cats, nc = cats.length; const heads = columnasPl(lay); const n = heads.length;
   const x = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   const colL = i => String.fromCharCode(65 + i);
   const rows = []; const cell = (r, c, v, st, f) => { (rows[r] = rows[r] || []).push({ c, v, st, f }); };
   // estilos: 1 borde, 2 borde+negrita centrado, 3 negrita grande, 4 borde número, 5 borde negrita número
-  cell(1,0,"Numero De Cliente",2); cell(1,1,Number(meta.cliente)||meta.cliente,5); cell(1,4,"USUAL",3); cell(1,11,"Fecha",2); cell(1,12,fechaAR(meta.fecha),2);
+  cell(1,0,"Numero De Cliente",2); cell(1,1,lay.sol ? String(meta.cliente||"") : Number(meta.cliente)||meta.cliente,5); if (!lay.sol) cell(1,4,"USUAL",3); cell(1,n-2,"Fecha",2); cell(1,n-1,fechaAR(meta.fecha),2);
   cell(2,0,"Numero de Remito",2); cell(2,1,Number(meta.remito)||meta.remito||"",5);
-  CATS.forEach((c,i) => { if (c.p) cell(3, 4+i, c.p, 2); });
-  ["Numero de caja","Modelo","Frente","Patilla",...CATS.map(c=>c.n),"Numero de bulto"].forEach((t,i) => cell(4, i, t, 2));
-  let r = 5; const first = 5;
+  const hr = lay.sol ? 3 : 4; if (!lay.sol) cats.forEach((c,i) => { if (c.p) cell(3, 4+i, c.p, 2); });
+  heads.forEach((t,i) => cell(hr, i, t, 2));
+  let r = hr + 1; const first = hr + 1;
   for (const l of L){
     cell(r,0,l.codigo,1); cell(r,1,Number(l.modelo)||l.modelo,4); cell(r,2,l.frente,1); cell(r,3,l.patilla,1);
-    CATS.forEach((c,i) => cell(r, 4+i, c.id === l.cat ? l.cant : "", 4)); cell(r,12,Number(l.bulto)||l.bulto,4);
+    cats.forEach((c,i) => cell(r, 4+i, c.id === l.cat ? l.cant : "", 4)); if (lay.color) cell(r, 4+nc, l.color || "", 1); cell(r,n-1,Number(l.bulto)||l.bulto,4);
     r++;
   }
-  const T = totalesCat(L);
+  const T = totalesCat(L, cats);
   cell(r,0,"Total",2); for (let i = 1; i < 4; i++) cell(r,i,"",2);
-  CATS.forEach((c,i) => cell(r, 4+i, T[c.id], 5, `SUM(${colL(4+i)}${first+1}:${colL(4+i)}${r})`));
+  cats.forEach((c,i) => cell(r, 4+i, T[c.id], 5, `SUM(${colL(4+i)}${first+1}:${colL(4+i)}${r})`)); for (let i = 4 + nc; i < n; i++) cell(r,i,"",2);
   const sheetRows = rows.map((cs, ri) => cs ? `<row r="${ri+1}">${cs.filter((v,i,a)=>a.findIndex(o=>o.c===v.c)===i).sort((a,b)=>a.c-b.c).map(o => {
     const ref = colL(o.c) + (ri+1); const s = o.st ? ` s="${o.st}"` : "";
     if (o.f) return `<c r="${ref}"${s}><f>${o.f}</f><v>${o.v}</v></c>`;
     if (o.v === "" || o.v == null) return `<c r="${ref}"${s}/>`;
     if (typeof o.v === "number") return `<c r="${ref}"${s}><v>${o.v}</v></c>`;
     return `<c r="${ref}"${s} t="inlineStr"><is><t>${x(o.v)}</t></is></c>`; }).join("")}</row>` : "").join("");
-  const widths = [20,9,15,15,11,12,12,12,13,13,12,12,10];
-  const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols><sheetData>${sheetRows}</sheetData><mergeCells count="1"><mergeCell ref="E2:K3"/></mergeCells><pageSetup orientation="landscape" paperSize="9" fitToHeight="0"/></worksheet>`;
+  const widths = lay.sol ? [22,9,18,20,...cats.map(()=>13),20,9] : [20,9,15,15,11,12,12,12,13,13,12,12,10];
+  const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols><sheetData>${sheetRows}</sheetData>${lay.sol ? "" : `<mergeCells count="1"><mergeCell ref="E2:${colL(n-3)}3"/></mergeCells>`}<pageSetup orientation="landscape" paperSize="9" fitToHeight="0"/></worksheet>`;
   const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><sz val="22"/><name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="2"><border/><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="6"><xf/><xf borderId="1" applyBorder="1"/><xf fontId="1" borderId="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf fontId="2" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf borderId="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf><xf fontId="1" borderId="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf></cellXfs></styleSheet>`;
   return zipStore([
     ["[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`],
@@ -1364,7 +1391,7 @@ function renderDespacho(){
   if (S.verPlanilla) return renderPlanilla();
   const q = norm(S.q);
   const listos = pendientes(proc("despacho")).filter(c => !enCarrito(c.codigo));
-  return `<div class="head"><div><h2>Despacho ${S.linea==="sol"?"· Sol":"· Receta"}</h2><p>Armá el despacho con cajas de cualquier pedido y generá la planilla. ${S.linea==="sol"?"Una caja de sol está lista cuando tiene Frentes, Patillas, Grabado láser y Torno entregado.":"Una caja está lista cuando terminó Ensamblado."}</p></div></div>
+  return `<div class="head"><div><h2>Despacho ${S.linea==="sol"?"· Sol":"· Receta"}</h2><p>Armá el despacho con cajas de cualquier pedido y generá la planilla. ${S.linea==="sol"?"Una caja de sol está lista cuando tiene Frentes, Patillas, Calibrado, Grabado láser, Torno entregado y Ensamblado.":"Una caja está lista cuando terminó Ensamblado."}</p></div></div>
     ${!S.loaded?`<div class="empty"><b>Cargando…</b></div>`:renderCarrito()}
     <div class="scan"><div class="field"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Buscar cajas para agregar: código, pedido o modelo" value="${esc(S.q)}" aria-label="Buscar cajas para agregar"></div></div>
@@ -1372,21 +1399,23 @@ function renderDespacho(){
     ${renderHistorial()}`;
 }
 function planillaHTML(M, L){ L = conInsumos(M, L);
-  const T = totalesCat(L);
-  return `<div class="pl-scroll"><div class="paper planilla-paper"><table>
-    <colgroup><col style="width:12.5%"><col style="width:5%"><col style="width:9%"><col style="width:9%">${CATS.map(()=>`<col style="width:7%">`).join("")}<col style="width:8.5%"></colgroup>
+  const lay = layoutPl(M, L), cats = lay.cats; const T = totalesCat(L, cats); const heads = columnasPl(lay); const n = heads.length;
+  const tot = lay.w.reduce((a,b)=>a+b,0);
+  return `<div class="pl-scroll"><div class="paper planilla-paper ${lay.sol?"pl-sol":""}"><table>
+    <colgroup>${lay.w.map(w=>`<col style="width:${(w/tot*100).toFixed(2)}%">`).join("")}</colgroup>
     <thead>
-      <tr class="pl-top"><th class="lab">Numero De Cliente</th><th class="val">${esc(M.cliente)}</th><th colspan="9" rowspan="2" class="logo">USUAL</th><th rowspan="2" class="lab">Fecha</th><th rowspan="2" class="val">${esc(fechaAR(M.fecha))}</th></tr>
+      <tr class="pl-top"><th class="lab">Numero De Cliente</th><th class="val">${esc(M.cliente)}</th><th colspan="${n-4}" rowspan="2" class="logo">${lay.sol?"":"USUAL"}</th><th rowspan="2" class="lab">Fecha</th><th rowspan="2" class="val">${esc(fechaAR(M.fecha))}</th></tr>
       <tr class="pl-top"><th class="lab">Numero de Remito</th><th class="val">${esc(M.remito)}</th></tr>
-      <tr class="pl-p"><th colspan="4"></th>${CATS.map(c=>`<th>${esc(c.p)}</th>`).join("")}<th></th></tr>
-      <tr class="pl-h"><th>Numero de caja</th><th>Modelo</th><th>Frente</th><th>Patilla</th>${CATS.map(c=>`<th>${esc(c.n)}</th>`).join("")}<th>Numero de bulto</th></tr>
+      ${cats.some(c=>c.p)?`<tr class="pl-p"><th colspan="4"></th>${cats.map(c=>`<th>${esc(c.p)}</th>`).join("")}<th></th></tr>`:""}
+      <tr class="pl-h">${heads.map(h=>`<th>${esc(h)}</th>`).join("")}</tr>
     </thead><tbody>
-      ${L.map((l,i)=>`<tr class="${i&&l.bulto!==L[i-1].bulto?"nb":""}"><td>${esc(l.codigo)}</td><td class="n">${esc(l.modelo)}</td><td>${esc(l.frente)}</td><td>${esc(l.patilla)}</td>${CATS.map(c=>`<td class="n">${c.id===l.cat?l.cant:""}</td>`).join("")}<td class="n">${esc(l.bulto)}</td></tr>`).join("")}
-      <tr class="pl-tot"><td colspan="4">Total</td>${CATS.map(c=>`<td>${T[c.id]}</td>`).join("")}<td></td></tr>
+      ${L.map((l,i)=>`<tr class="${i&&l.bulto!==L[i-1].bulto?"nb":""}"><td>${esc(l.codigo)}</td><td class="n">${esc(l.modelo)}</td><td>${esc(l.frente)}</td><td>${esc(l.patilla)}</td>${cats.map(c=>`<td class="${lay.sol?"cc":"n"}">${c.id===l.cat?l.cant:""}</td>`).join("")}${lay.color?`<td>${esc(l.color||"")}</td>`:""}<td class="n">${esc(l.bulto)}</td></tr>`).join("")}
+      <tr class="pl-tot"><td colspan="4">Total</td>${cats.map(c=>`<td>${lay.sol&&!T[c.id]?"":T[c.id]}</td>`).join("")}${"<td></td>".repeat(n-4-cats.length)}</tr>
     </tbody></table></div></div>`;
 }
 function renderPlanilla(){
-  const M = metaPlanilla(); const L = lineasPlanilla(); const T = totalesCat(conInsumos(M, L));
+  const M = metaPlanilla(); const L = lineasPlanilla(); const sol = esSolPl(M); const opCats = sol ? CATS_SOL : CATS;
+  const catsTot = layoutPl(M, conInsumos(M, L)).cats; const T = totalesCat(conInsumos(M, L), catsTot);
   return `<div class="head"><div><h2>Planilla de despacho</h2><p>${S.carrito.items.length} cajas · ${L.length} líneas. Revisá el tipo de cada línea antes de descargar.</p></div><button class="btn" id="volverDesp">← Volver al despacho</button></div>
     <div class="imp-head">
       <div class="imp-field"><label for="plCli">Número de cliente</label><input id="plCli" type="text" value="${esc(M.cliente)}"></div>
@@ -1396,11 +1425,11 @@ function renderPlanilla(){
     <div class="row" style="gap:8px"><button class="btn primary" data-pl="pdf">Descargar PDF</button><button class="btn primary" data-pl="xlsx">Descargar Excel</button><span style="flex:1"></span>
       ${S.canWrite?(S.confirmDesp?`<span class="confirm inline">¿Marcar las ${S.carrito.items.length} cajas como despachadas?<button class="btn danger" id="despSi" ${S.despBusy?"disabled":""}>${S.despBusy?`Despachando… ${esc(S.despBusy)}`:"Sí, despachar"}</button><button class="btn" id="despNo">No</button></span>`:`<button class="btn ok" id="despAsk">Confirmar despacho</button>`):""}</div>
     <div class="views pl-sw" role="tablist" aria-label="Modo"><button data-plvista="previa" class="${S.plVista!=="editar"?"on":""}" aria-pressed="${S.plVista!=="editar"}">Vista previa</button><button data-plvista="editar" class="${S.plVista==="editar"?"on":""}" aria-pressed="${S.plVista==="editar"}">Revisar tipos</button></div>
-    ${S.plVista!=="editar" ? planillaHTML(M, L) + `<p class="hint">Así sale el PDF. Para cambiar el tipo de alguna línea, entrá a “Revisar tipos”.</p>` : `<div class="tablewrap planilla"><table><thead><tr><th>Caja</th><th>Mod.</th><th>Frente</th><th>Patilla</th><th>Cant.</th><th>Tipo</th><th>Bulto</th></tr></thead><tbody>
-      ${L.map((l,i)=>`<tr class="${i&&l.bulto!==L[i-1].bulto?"nb":""}"><td class="c">${esc(l.codigo)}</td><td>${esc(l.modelo)}</td><td>${esc(l.frente)}</td><td>${esc(l.patilla)}</td><td class="num">${l.cant}</td>
-        <td><select data-cat="${esc(l.key)}" aria-label="Tipo de ${esc(l.codigo)} ${esc(l.frente)}">${CATS.map(c=>`<option value="${c.id}" ${l.cat===c.id?"selected":""}>${c.p?c.p+" · ":""}${esc(c.n)}</option>`).join("")}</select></td><td class="num">${esc(l.bulto)}</td></tr>`).join("")}
+    ${S.plVista!=="editar" ? planillaHTML(M, L) + `<p class="hint">Así sale el PDF. Para cambiar el tipo de alguna línea, entrá a “Revisar tipos”.</p>` : `<div class="tablewrap planilla"><table><thead><tr><th>Caja</th><th>Mod.</th><th>Frente</th><th>Patilla</th>${sol?"<th>Color</th>":""}<th>Cant.</th><th>${sol?"Tipo de lente":"Tipo"}</th><th>Bulto</th></tr></thead><tbody>
+      ${L.map((l,i)=>`<tr class="${i&&l.bulto!==L[i-1].bulto?"nb":""}"><td class="c">${esc(l.codigo)}</td><td>${esc(l.modelo)}</td><td>${esc(l.frente)}</td><td>${esc(l.patilla)}</td>${sol?`<td>${esc(l.color||"")}</td>`:""}<td class="num">${l.cant}</td>
+        <td><select data-cat="${esc(l.key)}" aria-label="Tipo de ${esc(l.codigo)} ${esc(l.frente)}">${opCats.map(c=>`<option value="${c.id}" ${l.cat===c.id?"selected":""}>${c.p?c.p+" · ":""}${esc(c.n)}</option>`).join("")}</select></td><td class="num">${esc(l.bulto)}</td></tr>`).join("")}
     </tbody></table></div>
-    <div class="totales">${CATS.map(c=>`<div class="tot ${T[c.id]?"":"cero"}"><span>${c.p?c.p+" · ":""}${esc(c.n)}</span><b>${T[c.id]}</b></div>`).join("")}</div>`}
+    <div class="totales">${catsTot.map(c=>`<div class="tot ${T[c.id]?"":"cero"}"><span>${c.p?c.p+" · ":""}${esc(c.n)}</span><b>${T[c.id]}</b></div>`).join("")}</div>`}
     ${insumosDespachoHTML()}
     ${extrasHTML()}`;
 }
@@ -1779,6 +1808,89 @@ async function nuevoInsumo(){
   try { await S.db.collection("insumos").doc(id).set({ nombre, medida, inicial: cant, fechaInicial: today(), orden: S.insumos.size + 1 }); toast(`Agregado ${esc(nombre)}`); } catch(e){ failed(e); }
 }
 
+/* ---------- Pago a ensambladores ---------- */
+const NO_PAGO = ["Interno", "Stock"];
+const redondeo500 = v => Math.ceil(v / 500) * 500;
+const pesos = v => "$" + (Math.round(v * 100) / 100).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function asegurarPagos(){
+  if (!S.db) return;
+  const P = S.pago; const key = `${P.desde}|${P.hasta}`;
+  if (P.key === key) return;
+  if (P.unsub) P.unsub();
+  P.key = key; P.loading = true; P.rows = []; P.error = false;
+  P.unsub = S.db.collection("registros").where("tipo","==","ensamblado").where("f",">=",P.desde).where("f","<=",P.hasta)
+    .onSnapshot(sn => { P.rows = sn.docs.map(d => ({ id: d.id, ...d.data() })); P.loading = false; render(true); }, () => { P.loading = false; P.error = true; render(true); });
+}
+function calcPagos(){
+  const P = S.pago; const pr = S.precios;
+  const m = new Map();
+  for (const n of ENSAMB) if (!NO_PAGO.includes(n)) m.set(n, { receta: 0, sol: 0, cajasR: 0, cajasS: 0 });
+  for (const r of P.rows){ const n = r.r || "Sin asignar"; if (NO_PAGO.includes(n)) continue;
+    const v = m.get(n) || { receta: 0, sol: 0, cajasR: 0, cajasS: 0 };
+    if ((r.linea || "receta") === "sol"){ v.sol += Number(r.cant)||0; v.cajasS++; } else { v.receta += Number(r.cant)||0; v.cajasR++; }
+    m.set(n, v); }
+  return [...m.entries()].map(([n, v]) => { const impR = v.receta * pr.receta, impS = v.sol * pr.sol, tot = impR + impS;
+    return { n, ...v, impR, impS, tot, red: redondeo500(tot) }; })
+    .sort((a,b) => b.tot - a.tot || a.n.localeCompare(b.n));
+}
+function renderPagos(){
+  asegurarPagos();
+  const P = S.pago; const pr = S.precios;
+  const quick = [["semana","Esta semana"],["pasada","Semana pasada"],["mes","Este mes"]];
+  const filas = calcPagos(); const conMov = filas.filter(f => f.receta || f.sol);
+  const T = filas.reduce((a,f) => ({ receta: a.receta + f.receta, sol: a.sol + f.sol, tot: a.tot + f.tot, red: a.red + f.red }), { receta: 0, sol: 0, tot: 0, red: 0 });
+  const verTodos = P.todos;
+  return `<div class="head"><div><h2>Pago a ensambladores</h2><p>Cajas que terminó cada ensamblador en el período. Solo se paga el ensamblado del armazón completo: receta y sol (sin lentillas).</p></div></div>
+    <div class="filtros">
+      <div class="f-quick">${quick.map(([id,n]) => { const [d,h] = rangoRapido(id); return `<button class="btn ${P.desde===d&&P.hasta===h?"on":""}" data-pagor="${id}">${n}</button>`; }).join("")}</div>
+      <label>Desde <input type="date" id="pagoDesde" value="${esc(P.desde)}"></label>
+      <label>Hasta <input type="date" id="pagoHasta" value="${esc(P.hasta)}"></label>
+      <label>Precio armazón receta <input type="number" min="0" step="0.5" id="precioReceta" value="${esc(pr.receta)}" ${S.canWrite?"":"disabled"}></label>
+      <label>Precio armazón sol <input type="number" min="0" step="0.5" id="precioSol" value="${esc(pr.sol)}" ${S.canWrite?"":"disabled"}></label>
+    </div>
+    ${P.loading ? `<div class="empty"><b>Cargando…</b></div>` : P.error ? `<div class="empty"><b>No se pudo cargar</b>Recargá la página.</div>` : `
+    <div class="kpis">
+      <div class="kpi"><span>Armazones receta</span><b>${T.receta.toLocaleString("es-AR")}</b><small>${pesos(pr.receta)} c/u</small></div>
+      <div class="kpi"><span>Armazones sol</span><b>${T.sol.toLocaleString("es-AR")}</b><small>${pesos(pr.sol)} c/u</small></div>
+      <div class="kpi"><span>Total a pagar</span><b>${pesos(T.tot)}</b><small>${pesos(T.red)} redondeado</small></div>
+    </div>
+    <div class="tablewrap pagos"><table><thead><tr><th>Ensamblador</th><th class="r">Armazones receta</th><th class="r">Importe receta</th><th class="r">Armazones sol</th><th class="r">Importe sol</th><th class="r">Total</th><th class="r">Redondeo</th></tr></thead><tbody>
+      ${(verTodos ? filas : conMov).map(f => `<tr class="${f.tot ? "" : "cero"}"><td><b>${esc(f.n)}</b>${f.cajasR+f.cajasS ? `<small> · ${f.cajasR+f.cajasS} caja${f.cajasR+f.cajasS===1?"":"s"}</small>` : ""}</td>
+        <td class="r">${f.receta || "—"}</td><td class="r">${f.receta ? pesos(f.impR) : "—"}</td><td class="r">${f.sol || "—"}</td><td class="r">${f.sol ? pesos(f.impS) : "—"}</td><td class="r ttl">${pesos(f.tot)}</td><td class="r red">${pesos(f.red)}</td></tr>`).join("") || `<tr><td colspan="7" class="dempty">Nadie terminó cajas en este período.</td></tr>`}
+      <tr class="ptot"><td>Total</td><td class="r">${T.receta}</td><td class="r">${pesos(T.receta*pr.receta)}</td><td class="r">${T.sol}</td><td class="r">${pesos(T.sol*pr.sol)}</td><td class="r">${pesos(T.tot)}</td><td class="r">${pesos(T.red)}</td></tr>
+    </tbody></table></div>
+    <div class="row" style="gap:10px;align-items:center"><label class="pick"><input type="checkbox" id="pagoTodos" ${verTodos?"checked":""}><span class="hint" style="margin:0">Mostrar también ensambladores sin cajas en el período</span></label>
+      <button class="btn" id="pagoXlsx">Descargar Excel</button></div>
+    <p class="hint">Se cuenta cada caja el día que se marcó “Terminar ensamblado”, con la cantidad de la caja. Redondeo: hacia arriba, de a $500. No se pagan “Interno” ni “Stock”.</p>`}`;
+}
+function xlsxPagos(){
+  const P = S.pago; const pr = S.precios; const filas = calcPagos().filter(f => f.tot);
+  const x = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const cel = (ref, v, st) => typeof v === "number" ? `<c r="${ref}"${st?` s="${st}"`:""}><v>${v}</v></c>` : `<c r="${ref}"${st?` s="${st}"`:""} t="inlineStr"><is><t>${x(v)}</t></is></c>`;
+  const rows = [];
+  rows.push(`<row r="1">${cel("A1", `Pago ensambladores ${fechaAR(P.desde)} al ${fechaAR(P.hasta)}`, 2)}</row>`);
+  rows.push(`<row r="2">${["Ensamblador","Armazones receta","Precio receta","Importe receta","Armazones sol","Precio sol","Importe sol","Total","Redondeo"].map((t,i)=>cel(String.fromCharCode(65+i)+"2", t, 2)).join("")}</row>`);
+  filas.forEach((f, k) => { const r = k + 3;
+    rows.push(`<row r="${r}">${cel("A"+r, f.n, 1)}${cel("B"+r, f.receta, 1)}${cel("C"+r, pr.receta, 1)}<c r="D${r}" s="1"><f>B${r}*C${r}</f><v>${f.impR}</v></c>${cel("E"+r, f.sol, 1)}${cel("F"+r, pr.sol, 1)}<c r="G${r}" s="1"><f>E${r}*F${r}</f><v>${f.impS}</v></c><c r="H${r}" s="1"><f>D${r}+G${r}</f><v>${f.tot}</v></c><c r="I${r}" s="1"><f>CEILING(H${r},500)</f><v>${f.red}</v></c></row>`); });
+  const last = filas.length + 2, t = last + 1;
+  rows.push(`<row r="${t}">${cel("A"+t, "Total", 2)}${["B","D","E","G","H","I"].map(c => `<c r="${c}${t}" s="2"><f>SUM(${c}3:${c}${last})</f></c>`).join("")}</row>`);
+  const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="22" customWidth="1"/><col min="2" max="9" width="15" customWidth="1"/></cols><sheetData>${rows.join("")}</sheetData></worksheet>`;
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="2"><border/><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="3"><xf/><xf borderId="1" applyBorder="1"/><xf fontId="1" borderId="1" applyFont="1" applyBorder="1"/></cellXfs></styleSheet>`;
+  return zipStore([
+    ["[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`],
+    ["_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+    ["xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Pago" sheetId="1" r:id="rId1"/></sheets><calcPr fullCalcOnLoad="1"/></workbook>`],
+    ["xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+    ["xl/worksheets/sheet1.xml", sheet], ["xl/styles.xml", styles] ]);
+}
+async function descargarPagos(){
+  const dl = await claude.use("downloads").catch(() => null);
+  if (!dl){ toast("La descarga no está disponible en esta vista.", null, true); return; }
+  const name = `Pago ensambladores ${fechaAR(S.pago.desde).replace(/\//g,"-")} al ${fechaAR(S.pago.hasta).replace(/\//g,"-")}.xlsx`;
+  try { await dl.save({ filename: name, data: new Blob([xlsxPagos()]) }); toast(`Descargado: ${esc(name)}`); }
+  catch(e){ if (e && e.code === "declined") return; toast("No se pudo descargar. Probá de nuevo.", null, true); }
+}
+
 function renderAlta(){
   const draft = S.altaTxt || "";
   const rows = parseAlta(draft, S.altaCant);
@@ -1794,7 +1906,7 @@ function render(keepFocus){
   renderTabs();
   const ae = document.activeElement; const focusQ = keepFocus && ae && ae.id; const sel = ae && ae.selectionStart;
   const p = curProc();
-  $("#main").innerHTML = S.tab==="stock" ? renderStock() : S.tab==="despacho" ? renderDespacho() : p ? renderProceso(p) : GRUPOS[S.tab] ? renderTerminadas(GRUPOS[S.tab]) : S.tab==="insumos" ? renderInsumos() : S.tab==="estadisticas" ? renderEstadisticas() : S.tab==="seguimiento" ? renderSeguimiento() : S.tab==="imprimir" ? renderImprimir() : renderAlta();
+  $("#main").innerHTML = S.tab==="stock" ? renderStock() : S.tab==="despacho" ? renderDespacho() : p ? renderProceso(p) : GRUPOS[S.tab] ? renderTerminadas(GRUPOS[S.tab]) : S.tab==="pagos" ? renderPagos() : S.tab==="insumos" ? renderInsumos() : S.tab==="estadisticas" ? renderEstadisticas() : S.tab==="seguimiento" ? renderSeguimiento() : S.tab==="imprimir" ? renderImprimir() : renderAlta();
   if (focusQ){ const el = document.getElementById(focusQ); if (el){ el.focus(); try{ el.setSelectionRange(sel,sel);}catch(e){} } }
   renderDrawer();
   $("#dot").className = "dot" + (S.loaded && !S.stale ? " live" : "");
@@ -1938,7 +2050,7 @@ document.addEventListener("click", async ev => {
   if (t.dataset.plvista){ S.plVista = t.dataset.plvista; render(); return; }
   if (t.id === "volverDesp"){ S.verPlanilla = false; S.confirmDesp = false; render(); return; }
   if (t.dataset.pl){ return descargarPlanilla(t.dataset.pl, metaPlanilla(), lineasPlanilla()); }
-  if (t.dataset.hpl){ const pl = S.planillas.find(x=>x.id===t.dataset.hid); if (pl) return descargarPlanilla(t.dataset.hpl, pl.meta, pl.lineas); return; }
+  if (t.dataset.hpl){ const pl = S.planillas.find(x=>x.id===t.dataset.hid); if (pl) return descargarPlanilla(t.dataset.hpl, { ...pl.meta, linea: pl.linea || pl.meta.linea || "receta" }, pl.lineas); return; }
   if (t.id === "despAsk"){ S.confirmDesp = true; render(); return; }
   if (t.id === "despNo"){ S.confirmDesp = false; render(); return; }
   if (t.id === "despSi"){ return confirmarDespacho(); }
@@ -1958,6 +2070,8 @@ document.addEventListener("click", async ev => {
   if (t.dataset.cap){ const [mod, cap] = t.dataset.cap.split(":"); S.imp.caps[mod] = +cap; render(); return; }
   if (t.id === "impGo") return crearPedido();
   if (t.dataset.insmov) return moverInsumo(t.dataset.insid, t.dataset.insmov);
+  if (t.dataset.pagor){ [S.pago.desde, S.pago.hasta] = rangoRapido(t.dataset.pagor); render(); return; }
+  if (t.id === "pagoXlsx") return descargarPagos();
   if (t.id === "exAdd"){ const ex = [...(S.carrito.extras || []), { desc: "", cant: "" }]; guardarCarrito({ extras: ex }); const f = document.getElementById(`ex-${ex.length-1}-d`); if (f) f.focus(); return; }
   if (t.dataset.exdel){ const ex = [...(S.carrito.extras || [])]; ex.splice(+t.dataset.exdel, 1); guardarCarrito({ extras: ex }); return; }
   if (t.dataset.insver){ S.insVer[t.dataset.insver] = !S.insVer[t.dataset.insver]; render(); return; }
@@ -2004,6 +2118,10 @@ document.addEventListener("input", ev => {
 });
 document.addEventListener("change", ev => {
   const t = ev.target;
+  if (t.id === "pagoDesde" || t.id === "pagoHasta"){ if (t.value){ if (t.id === "pagoDesde") S.pago.desde = t.value; else S.pago.hasta = t.value; if (S.pago.desde > S.pago.hasta){ const x = S.pago.desde; S.pago.desde = S.pago.hasta; S.pago.hasta = x; } } render(); return; }
+  if (t.id === "pagoTodos"){ S.pago.todos = t.checked; render(); return; }
+  if (t.id === "precioReceta" || t.id === "precioSol"){ const v = Math.max(0, Number(t.value) || 0); S.precios = { ...S.precios, [t.id === "precioReceta" ? "receta" : "sol"]: v }; render(true);
+    S.db.doc("config/precios").set({ ...S.precios, actualizado: Date.now() }).then(() => toast("Precio guardado")).catch(failed); return; }
   if (t.dataset && t.dataset.exi != null){ const ex = (S.carrito.extras || []).map(e => ({ ...e })); const r = ex[+t.dataset.exi]; if (r){ r[t.dataset.exf] = t.dataset.exf === "cant" ? (t.value === "" ? "" : Math.max(0, Number(t.value) || 0)) : t.value; guardarCarrito({ extras: ex }); } return; }
   if (t.dataset && t.dataset.insdesp){ const v = Math.max(0, parseInt(t.value,10) || 0); const ins = { ...(S.carrito.insumos || {}) }; if (v) ins[t.dataset.insdesp] = v; else delete ins[t.dataset.insdesp]; guardarCarrito({ insumos: ins }); return; }
   const estMap = { estDist: "dist", estModelo: "modelo", estColor: "color", estLente: "lente", estBase: "base", estLinea: "linea" };
@@ -2015,7 +2133,7 @@ document.addEventListener("change", ev => {
   if (t.dataset && t.dataset.base){ if (t.value) S.baseSel[t.dataset.base] = t.value; else delete S.baseSel[t.dataset.base]; render(true); return; }
   if (t.id === "linea"){ S.linea = t.value === "sol" ? "sol" : "receta"; try{localStorage.setItem("cu.linea",S.linea);}catch(e){}
     S.sel.clear(); S.q = ""; S.shown = PAGE; S.verPlanilla = false; S.confirmDesp = false; S.printPed = null; S.printExcl.clear();
-    if (!tabsLinea().some(p=>p.k===S.tab) && !["seguimiento","alta","imprimir","estadisticas","insumos"].includes(S.tab) && !(S.tab==="stock" && S.linea==="sol")) S.tab = "frentes";
+    if (!tabsLinea().some(p=>p.k===S.tab) && !["seguimiento","alta","imprimir","estadisticas","insumos","pagos"].includes(S.tab) && !(S.tab==="stock" && S.linea==="sol")) S.tab = "frentes";
     render(); return; }
   if (t.dataset && t.dataset.incl){ if (t.checked) S.printExcl.delete(t.dataset.incl); else S.printExcl.add(t.dataset.incl); render(); return; }
   if (t.id === "printAll"){ const p = pedidosActivos().find(x=>x.ped===S.printPed); if (p) p.cajas.forEach(c => t.checked ? S.printExcl.delete(c.codigo) : S.printExcl.add(c.codigo)); render(); return; }
@@ -2047,7 +2165,8 @@ async function start(){
   if (STAGES[S.tab] && !PROCESOS.some(p=>p.k===S.tab)) S.tab = STAGES[S.tab].tab;
   [S.rep.desde, S.rep.hasta] = rangoRapido("semana");
   [S.est.desde, S.est.hasta] = rangoEst("mes");
-  if (!tabsLinea().some(p=>p.k===S.tab) && S.tab!=="seguimiento" && S.tab!=="alta" && S.tab!=="imprimir" && S.tab!=="estadisticas" && S.tab!=="insumos" && !(S.tab==="stock" && S.linea==="sol")) S.tab = "frentes";
+  [S.pago.desde, S.pago.hasta] = rangoRapido("semana");
+  if (!tabsLinea().some(p=>p.k===S.tab) && S.tab!=="seguimiento" && S.tab!=="alta" && S.tab!=="imprimir" && S.tab!=="estadisticas" && S.tab!=="insumos" && S.tab!=="pagos" && !(S.tab==="stock" && S.linea==="sol")) S.tab = "frentes";
   render();
   if (!window.claude || !window.claude.use){ S.error = "Abrí esta página en Claude para conectarte"; render(); return; }
   const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
@@ -2057,6 +2176,7 @@ async function start(){
   const timer = setTimeout(()=>{ S.stale = true; render(true); }, 10000);
   for (const lin of ["receta","sol"]) db.doc(carritoPath(lin)).onSnapshot(sn => { if (sn.exists){ const d = sn.data(); S.carritos[lin] = { ...CARRITO_VACIO(), ...d, items: [...(d.items||[])], cats: { ...(d.cats||{}) } }; render(true); } }, () => {});
   db.collection("stock").onSnapshot(sn => { S.stock = new Map(sn.docs.map(d => [d.id, { id: d.id, ...d.data() }])); render(true); }, () => {});
+  db.doc("config/precios").onSnapshot(sn => { if (sn.exists){ const d = sn.data(); S.precios = { receta: Number(d.receta) || 0, sol: Number(d.sol) || 0 }; render(true); } }, () => {});
   db.collection("insumos").onSnapshot(sn => { S.insumos = new Map(sn.docs.map(d => [d.id, { id: d.id, ...d.data() }])); render(true); }, () => {});
   db.collection("insumoMov").onSnapshot(sn => { S.insMovs = sn.docs.map(d => ({ id: d.id, ...d.data() })); render(true); }, () => {});
   db.collection("stockMov").onSnapshot(sn => { S.movs = sn.docs.map(d => ({ id: d.id, ...d.data() })); render(true); }, () => {});
