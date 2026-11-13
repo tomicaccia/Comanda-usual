@@ -35,7 +35,10 @@ async function iniciarBase() {
     await pg`create table if not exists docs (coll text not null, id text not null, data jsonb not null, actualizado timestamptz not null default now(), primary key (coll, id))`;
     await pg`create table if not exists usuarios (id text primary key, usuario text not null unique, nombre text not null, rol text not null default 'admin', pass text not null, activo boolean not null default true, creado timestamptz not null default now())`;
     await pg`create table if not exists sesiones (token text primary key, uid text not null references usuarios(id) on delete cascade, vence timestamptz not null)`;
-    for (const r of await pg`select coll, id, data::text as data from docs`) col(r.coll).set(r.id, JSON.parse(r.data));
+    // Arreglo: versiones anteriores guardaban cada documento como texto JSON dentro del jsonb (doble codificación)
+    const arreglados = await pg`update docs set data = (data #>> '{}')::jsonb where jsonb_typeof(data) = 'string' returning id`;
+    if (arreglados.length) console.log(`Documentos reparados (estaban guardados como texto): ${arreglados.length}`);
+    for (const r of await pg`select coll, id, data::text as data from docs`) { let d = JSON.parse(r.data); if (typeof d === "string") d = JSON.parse(d); col(r.coll).set(r.id, d); }
     for (const r of await pg`select id, usuario, nombre, rol, pass, activo from usuarios`) usuarios.set(r.id, r as Usuario);
     for (const r of await pg`select token, uid, vence from sesiones where vence > now()`) sesiones.set(r.token, { uid: r.uid, vence: new Date(r.vence).getTime() });
     await pg`delete from sesiones where vence <= now()`;
@@ -69,7 +72,7 @@ async function iniciarBase() {
 }
 function col(c: string) { let m = docs.get(c); if (!m) { m = new Map(); docs.set(c, m); } return m; }
 async function guardar(c: string, id: string, data: any) {
-  if (pg) await pg`insert into docs (coll, id, data) values (${c}, ${id}, ${JSON.stringify(data)}::jsonb) on conflict (coll, id) do update set data = excluded.data, actualizado = now()`;
+  if (pg) await pg`insert into docs (coll, id, data) values (${c}, ${id}, ${JSON.stringify(data)}::text::jsonb) on conflict (coll, id) do update set data = excluded.data, actualizado = now()`;
   col(c).set(id, data);
 }
 async function borrar(c: string, id: string) {
