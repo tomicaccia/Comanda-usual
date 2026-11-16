@@ -20,6 +20,8 @@ const rolDe = (u: Usuario) => ROLES[u.rol] || null;
 const raiz = (coll: string) => coll.split("/")[0];
 const puede = (u: Usuario, accion: "leer" | "escribir", coll: string) => {
   const r = rolDe(u); if (!r) return false;
+  // Producción semanal: los objetivos los carga solo el admin; marcar cumplidos (prodHecho) y atrasos (prodAtraso) siguen las reglas del rol
+  if (accion === "escribir" && raiz(coll) === "produccion" && !r.usuarios) return false;
   const p = r[accion]; return p === "*" || p.includes(raiz(coll));
 };
 

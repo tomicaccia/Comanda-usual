@@ -329,6 +329,53 @@ tbody tr:hover td{background:var(--surface-2)}
 .totales.rep .tot small{font:500 12px var(--f-mono);color:var(--muted)}
 .btn.on{border-color:var(--accent);background:var(--accent-soft)}
 td.r,th.r{text-align:right}
+.psem{display:flex;align-items:center;gap:8px}
+.psem b{font:600 14px var(--f-mono);min-width:118px;text-align:center}
+.psem .btn{padding:7px 11px}
+.prodwrap{overflow-x:auto}
+table.prod{table-layout:fixed;min-width:1000px}
+table.prod th,table.prod td{white-space:normal;vertical-align:top;border-right:1px solid var(--line)}
+table.prod thead th{font-size:12px;color:var(--ink);text-transform:none;letter-spacing:0;text-align:center;background:var(--surface-2)}
+table.prod thead th span{color:var(--muted);font:500 11.5px var(--f-mono);margin-left:4px}
+table.prod thead th.hoy{background:var(--accent-soft);color:var(--accent)}
+table.prod th.pg{font-size:12.5px;font-weight:700;color:var(--ink);text-transform:none;letter-spacing:0;vertical-align:middle;background:var(--surface-2);position:static}
+table.prod th.pg small{display:block;font-weight:400;font-size:11px;color:var(--muted);margin-top:3px}
+table.prod th.pf{font-size:12.5px;font-weight:500;color:var(--muted);text-transform:none;letter-spacing:0;vertical-align:middle;background:var(--surface);position:static}
+table.prod tr.pg-ini th,table.prod tr.pg-ini td{border-top:2px solid var(--line-2)}
+table.prod td.pc{padding:6px;display:table-cell}
+table.prod td.pc.hoy{background:color-mix(in srgb,var(--accent) 5%,var(--surface))}
+table.prod tbody tr:hover td{background:inherit}
+table.prod td.ptot{text-align:right;vertical-align:middle;font-family:var(--f-mono)}
+table.prod td.ptot b{display:block;font-size:13.5px} table.prod td.ptot small{font-size:11px;color:var(--muted)}
+.pchip{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;padding:5px 7px;margin-bottom:4px;border:1px solid var(--line-2);border-radius:8px;background:var(--surface-2)}
+.pchip .pc-chk{display:flex;align-items:center;gap:7px;cursor:pointer;flex:1;min-width:0}
+.pchip input{width:16px;height:16px;accent-color:var(--ok);margin:0;flex:none;cursor:pointer}
+.pchip .pc-m{font:700 13px var(--f-mono);color:var(--warn)}
+.pchip .pc-c{font:600 13px var(--f-mono)}
+.pchip .pc-n{flex-basis:100%;font-size:11.5px;color:var(--muted)}
+.pchip .pc-w{flex-basis:100%;font:500 11px var(--f-mono);color:var(--ok)}
+.pchip .pc-ad{display:flex;gap:4px;align-items:center;margin-left:auto}
+.pchip .pc-ad .link{font-size:11px}
+.pchip .ib-x{width:22px;height:22px;font-size:14px}
+.pchip.ok{background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 55%,var(--line))}
+.pchip.ok .pc-m{color:var(--ok)}
+.pchip.late{border-color:var(--late);background:var(--late-soft)}
+.pchip.late .pc-m{color:var(--late)}
+.pchip.hoy{border-color:var(--accent)}
+.padd{width:100%;border:1px dashed var(--line-2);background:none;color:var(--faint);border-radius:7px;padding:3px;cursor:pointer;font:600 14px var(--f-mono)}
+.padd:hover{color:var(--accent);border-color:var(--accent)}
+.psum{font:500 11px var(--f-mono);color:var(--muted);text-align:right;margin-top:3px}
+.pform{display:grid;grid-template-columns:minmax(0,1fr) 70px;gap:4px;margin-bottom:4px;padding:6px;border:1px solid var(--accent);border-radius:8px;background:var(--bg)}
+.pform input{font:500 12.5px var(--f-body);background:var(--surface);border:1px solid var(--line-2);border-radius:6px;color:var(--ink);padding:5px 7px;min-width:0;width:100%}
+.pform input[type=number]{font-family:var(--f-mono)}
+.pform .pf-nota{grid-column:1/-1}
+.pform .pf-b{grid-column:1/-1;display:flex;gap:4px}
+.pform .pf-b .btn{padding:5px 9px;font-size:12px;flex:1}
+.patr-i{display:flex;flex-wrap:wrap;gap:2px 6px;align-items:center;font-size:12px;padding:4px 6px;margin-bottom:4px;border-radius:7px;background:var(--warn-soft)}
+.patr-i b{font:600 12px var(--f-mono)} .patr-i span{flex:1 1 100%;color:var(--muted)}
+.patr-i .ib-x{width:20px;height:20px;font-size:13px;margin-left:auto}
+.kpi b.lateb{color:var(--late)}
+
 .pl-sw{align-self:flex-start}
 .pl-scroll{overflow-x:auto;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px}
 .planilla-paper{min-width:1080px;padding:14px}
@@ -552,7 +599,7 @@ const CLIENTES = {"01":"Mario","02":"Córdoba","03":"D.o.s","04":"Mar del Plata"
 const RX = /^([A-Z0-9]{2})-(\d{8})-(\d{3})(?:-(\d{1,2}))?$/;
 const PAGE = 60;
 
-const S = { tab: "frentes", q: "", cajas: new Map(), loaded: false, stale: false, error: null,
+const S = { tab: "produccion", esAdmin: false, prod: { lunes: "", key: "", doc: null, hechos: new Map(), atrasos: [], loading: true, unsub: null, add: null, edit: null, atr: null }, q: "", cajas: new Map(), loaded: false, stale: false, error: null,
   db: null, user: null, uid: null, canWrite: true, busy: new Set(), sel: new Set(), bulkBusy: null, pago: { desde: "", hasta: "", key: "", rows: [], loading: false, unsub: null, todos: false }, precios: { receta: 80, sol: 50 }, insumos: new Map(), insMovs: [], insVer: {}, est: { modo: "pedido", desde: "", hasta: "", linea: "todas", dist: "", modelo: "", color: "", lente: "", base: "", cajas: [], key: "", loading: false }, man: { codigo: "", rows: [{ color: "", seg: "", cant: "" }], lista: [], creando: null }, plVista: "previa", baseSel: {}, rep: { desde: "", hasta: "", resp: "", key: "", rows: [], loading: false, unsub: null }, filtroProc: {}, stock: new Map(), movs: [], carritos: { receta: { items: [], bultoActual: 1, cliente: "", remito: "", fecha: "", cats: {} }, sol: { items: [], bultoActual: 1, cliente: "", remito: "", fecha: "", cats: {} } }, linea: "receta", planillas: [], verPlanilla: false, confirmDesp: false, confirmVaciar: false, despBusy: null, printPed: null, printFmt: "a4x10", printExcl: new Set(), creado: null, info: new Set(), editInfo: null, editRows: [], shown: PAGE, resp: {}, recent: [], drawer: null, names: {} };
 Object.defineProperty(S, "carrito", { get(){ return S.carritos[S.linea]; }, set(v){ S.carritos[S.linea] = v; } });
 try { const l = localStorage.getItem("cu.linea"); if (l === "sol" || l === "receta") S.linea = l; } catch(e) {}
@@ -608,7 +655,7 @@ function renderTabs(){
   const activas = S.loaded ? [...S.cajas.values()].filter(c=>c.activa && enLinea(c)).length : "·";
   const ls = $("#linea"); if (ls && ls.value !== S.linea) ls.value = S.linea;
   document.documentElement.dataset.linea = S.linea;
-  $("#tabs").innerHTML = tabsLinea().map(p =>
+  $("#tabs").innerHTML = `<button data-tab="produccion" class="${S.tab==="produccion"?"on":""}" aria-pressed="${S.tab==="produccion"}">Producción semanal</button><span class="sep"></span>` + tabsLinea().map(p =>
     `<button data-tab="${p.k}" class="${S.tab===p.k?"on":""}" aria-pressed="${S.tab===p.k}">${esc(p.n)}<span class="n">${counts[p.k]}</span></button>`).join("")
     + `<span class="sep"></span>`
     + `<button data-tab="seguimiento" class="${S.tab==="seguimiento"?"on":""}">Seguimiento<span class="n">${activas}</span></button>`
@@ -1808,6 +1855,160 @@ async function nuevoInsumo(){
   try { await S.db.collection("insumos").doc(id).set({ nombre, medida, inicial: cant, fechaInicial: today(), orden: S.insumos.size + 1 }); toast(`Agregado ${esc(nombre)}`); } catch(e){ failed(e); }
 }
 
+/* ---------- Producción semanal (objetivos por sector y día) ---------- */
+const PROD_FILAS = [
+  { id: "sepFre", g: "Separado", n: "Frentes" }, { id: "sepPat", g: "Separado", n: "Patillas" },
+  { id: "torEnv", g: "Torno", n: "Enviado" }, { id: "torInt", g: "Torno", n: "Interno" }, { id: "torRec", g: "Torno", n: "Recibido" },
+  { id: "tampo", g: "Tampo", n: "" },
+  { id: "lisLen", g: "Listo para salir", n: "Lentillas" }, { id: "lisPat", g: "Listo para salir", n: "Patillas" },
+  { id: "ensEnv", g: "Ensambladores", n: "Enviado" },
+  { id: "desp", g: "Despachos", n: "" },
+];
+const PROD_DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
+const lunesDe = iso => { const [y,m,d] = String(iso).split("-").map(Number); const f = new Date(y, m-1, d); f.setDate(f.getDate() - ((f.getDay()+6)%7)); return isoDe(f); };
+const sumarDias = (iso, n) => { const [y,m,d] = String(iso).split("-").map(Number); const f = new Date(y, m-1, d + n); return isoDe(f); };
+const ddmm = iso => { const [, m, d] = String(iso).split("-"); return `${d}/${m}`; };
+const prodId = () => Math.random().toString(36).slice(2, 10);
+function prodSemana(){ const P = S.prod; return (P.doc && P.doc.items) || []; }
+function asegurarProd(){
+  const P = S.prod; if (!S.db || P.key === P.lunes) return;
+  if (P.unsub) P.unsub.forEach(u => { try { u(); } catch(e){} });
+  P.key = P.lunes; P.doc = null; P.hechos = new Map(); P.atrasos = []; P.loading = true;
+  const lun = P.lunes;
+  P.unsub = [
+    S.db.doc("produccion/" + lun).onSnapshot(sn => { if (P.key !== lun) return; P.doc = sn.exists ? sn.data() : null; P.loading = false; if (S.tab === "produccion") render(true); }, () => { P.loading = false; P.error = true; render(true); }),
+    S.db.collection("prodHecho").where("semana", "==", lun).onSnapshot(sn => { if (P.key !== lun) return; P.hechos = new Map(sn.docs.map(d => [d.data().item, { id: d.id, ...d.data() }])); if (S.tab === "produccion") render(true); }, () => {}),
+    S.db.collection("prodAtraso").where("semana", "==", lun).onSnapshot(sn => { if (P.key !== lun) return; P.atrasos = sn.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (a.at||0) - (b.at||0)); if (S.tab === "produccion") render(true); }, () => {}),
+  ];
+}
+function nombreDe(uid){ if (!uid) return ""; if (S.names[uid] == null && S.user && S.user.profiles){ S.names[uid] = ""; S.user.profiles([uid]).then(ps => { S.names[uid] = (ps[uid] && ps[uid].name) || ""; if (S.tab === "produccion") render(true); }).catch(() => {}); } return S.names[uid] || ""; }
+function prodChip(it, diaIso){
+  const P = S.prod; const h = P.hechos.get(it.id); const hoy = today();
+  const est = h ? "ok" : diaIso < hoy ? "late" : diaIso === hoy ? "hoy" : "";
+  const puedeDes = h && S.canWrite && (S.esAdmin || h.por === S.uid);
+  const quien = h ? nombreDe(h.por) : "";
+  const tit = h ? `Cumplido${quien ? " por " + quien : ""} el ${fechaAR(h.f)}${h.hora ? " a las " + h.hora : ""}` : est === "late" ? "Atrasado: no se marcó como cumplido" : "Pendiente";
+  if (P.edit === it.id && S.esAdmin) return prodForm(it.fila, it.dia, it);
+  return `<div class="pchip ${est}" title="${esc(tit)}">
+    <label class="pc-chk"><input type="checkbox" data-prodok="${esc(it.id)}" ${h ? "checked" : ""} ${!S.canWrite || (h && !puedeDes) ? "disabled" : ""} aria-label="Marcar ${esc(it.modelo)} ${esc(it.cant)} como cumplido"><span class="pc-m">${esc(it.modelo)}</span><span class="pc-c">${nfmt(Number(it.cant)||0)}</span></label>
+    ${it.nota ? `<small class="pc-n">${esc(it.nota)}</small>` : ""}
+    ${h ? `<small class="pc-w">✓ ${quien ? esc(quien) + " · " : ""}${esc(ddmm(h.f))}${h.hora ? " " + esc(h.hora) : ""}</small>` : ""}
+    ${S.esAdmin ? `<span class="pc-ad"><button class="link" data-prodedit="${esc(it.id)}" aria-label="Editar">Editar</button><button class="ib-x" data-proddel="${esc(it.id)}" aria-label="Borrar ${esc(it.modelo)}" title="Borrar">×</button></span>` : ""}
+  </div>`;
+}
+function prodForm(fila, dia, it){
+  const k = it ? it.id : `${fila}-${dia}`;
+  return `<div class="pform" data-pfk="${esc(k)}">
+    <input type="text" id="pf-m-${esc(k)}" placeholder="Modelo" value="${esc(it ? it.modelo : "")}" aria-label="Modelo" inputmode="numeric">
+    <input type="number" min="0" id="pf-c-${esc(k)}" placeholder="Cant." value="${esc(it ? it.cant : "")}" aria-label="Cantidad">
+    <input type="text" id="pf-n-${esc(k)}" class="pf-nota" placeholder="Nota (opcional)" value="${esc(it && it.nota || "")}" aria-label="Nota">
+    <span class="pf-b"><button class="btn primary" data-prodsave="${esc(k)}" data-fila="${esc(fila)}" data-dia="${dia}" ${it ? `data-item="${esc(it.id)}"` : ""}>${it ? "Guardar" : "Agregar"}</button><button class="btn" data-prodcancel="1">Cancelar</button></span>
+  </div>`;
+}
+function renderProduccion(){
+  const P = S.prod; asegurarProd();
+  const items = prodSemana(); const hoy = today();
+  const dias = PROD_DIAS.map((n, i) => ({ n, i, iso: sumarDias(P.lunes, i) }));
+  const enCelda = (f, d) => items.filter(it => it.fila === f && it.dia === d);
+  const tot = L => L.reduce((a, it) => a + (Number(it.cant) || 0), 0);
+  const totOk = L => L.filter(it => P.hechos.has(it.id)).reduce((a, it) => a + (Number(it.cant) || 0), 0);
+  const nOk = items.filter(it => P.hechos.has(it.id)).length;
+  const nLate = items.filter(it => !P.hechos.has(it.id) && sumarDias(P.lunes, it.dia) < hoy).length;
+  const esEsta = P.lunes === lunesDe(hoy);
+  const grupos = []; for (const f of PROD_FILAS){ const g = grupos[grupos.length-1]; if (g && g.g === f.g) g.filas.push(f); else grupos.push({ g: f.g, filas: [f] }); }
+  const celda = (f, d) => { const L = enCelda(f.id, d.i); const adding = P.add === `${f.id}-${d.i}`;
+    return `<td class="pc ${d.iso === hoy ? "hoy" : ""}">${L.map(it => prodChip(it, d.iso)).join("")}
+      ${adding ? prodForm(f.id, d.i) : S.esAdmin ? `<button class="padd" data-prodadd="${esc(f.id)}-${d.i}" aria-label="Agregar objetivo a ${esc(f.g)} ${esc(f.n)} el ${esc(d.n)}">+</button>` : ""}
+      ${L.length > 1 ? `<div class="psum">${nfmt(totOk(L))} / ${nfmt(tot(L))}</div>` : ""}</td>`; };
+  const filasHTML = grupos.map(g => g.filas.map((f, k) => `<tr class="${k === 0 ? "pg-ini" : ""}">
+      ${k === 0 ? `<th class="pg" rowspan="${g.filas.length}" ${f.n ? "" : `colspan="2"`}>${esc(g.g)}</th>` : ""}${f.n ? `<th class="pf">${esc(f.n)}</th>` : ""}
+      ${dias.map(d => celda(f, d)).join("")}
+      <td class="ptot">${(() => { const L = items.filter(it => it.fila === f.id); return L.length ? `<b>${nfmt(totOk(L))}</b><small>de ${nfmt(tot(L))}</small>` : ""; })()}</td></tr>`).join("")).join("");
+  const atr = dias.map(d => { const L = P.atrasos.filter(a => a.dia === d.i); const abierto = P.atr === d.i;
+    return `<td class="pc patr">${L.map(a => `<div class="patr-i"><b>${esc(a.caja || "—")}</b><span>${esc(a.motivo || "")}</span>${(S.esAdmin || a.por === S.uid) && S.canWrite ? `<button class="ib-x" data-atrdel="${esc(a.id)}" aria-label="Borrar" title="Borrar">×</button>` : ""}</div>`).join("")}
+      ${abierto ? `<div class="pform"><input type="text" id="atr-c" placeholder="N° de caja" aria-label="Número de caja"><input type="text" id="atr-m" class="pf-nota" placeholder="Por qué no se cumple con la fecha" aria-label="Motivo"><span class="pf-b"><button class="btn primary" data-atrsave="${d.i}">Agregar</button><button class="btn" data-prodcancel="1">Cancelar</button></span></div>`
+        : S.canWrite ? `<button class="padd" data-atradd="${d.i}" aria-label="Agregar atraso el ${esc(d.n)}">+</button>` : ""}</td>`; }).join("");
+  const vacia = !P.loading && !items.length;
+  return `<div class="head"><div><h2>Producción semanal</h2><p>${S.esAdmin ? "Cargá los objetivos de cada sector por día (modelo y cantidad). Cada uno marca el suyo cuando lo cumple." : "Marcá cada objetivo cuando lo cumplas. Los objetivos los carga el administrador."}</p></div>
+    <div class="psem"><button class="btn" data-prodsem="-7" aria-label="Semana anterior">←</button><b>${esc(ddmm(P.lunes))} – ${esc(ddmm(sumarDias(P.lunes, 4)))}</b><button class="btn" data-prodsem="7" aria-label="Semana siguiente">→</button>${esEsta ? "" : `<button class="btn" data-prodsem="0">Esta semana</button>`}</div></div>
+    ${P.loading ? `<div class="empty"><b>Cargando…</b></div>` : `
+    <div class="kpis">
+      <div class="kpi"><span>Objetivos</span><b>${items.length}</b><small>${nfmt(tot(items))} u.</small></div>
+      <div class="kpi"><span>Cumplidos</span><b>${nOk}</b><small>${nfmt(totOk(items))} u.</small></div>
+      <div class="kpi"><span>Atrasados</span><b class="${nLate ? "lateb" : ""}">${nLate}</b><small>de días que ya pasaron</small></div>
+    </div>
+    ${vacia && S.esAdmin ? `<div class="hint">Esta semana todavía no tiene objetivos. Tocá + en una celda para cargar uno, o <button class="link" style="color:var(--accent)" data-prodcopiar="1">copiá la semana anterior</button>.</div>` : vacia ? `<div class="hint">El administrador todavía no cargó los objetivos de esta semana.</div>` : ""}
+    <div class="tablewrap prodwrap"><table class="prod">
+      <colgroup><col style="width:110px"><col style="width:100px">${dias.map(() => `<col>`).join("")}<col style="width:96px"></colgroup>
+      <thead><tr><th colspan="2">Sector</th>${dias.map(d => `<th class="${d.iso === hoy ? "hoy" : ""}">${esc(d.n)} <span>${esc(ddmm(d.iso))}</span></th>`).join("")}<th class="r">Semana</th></tr></thead>
+      <tbody>${filasHTML}
+        <tr class="pg-ini"><th class="pg" colspan="2">Atrasos<small>n° de caja y por qué no se cumple con la fecha</small></th>${atr}<td></td></tr>
+      </tbody></table></div>
+    <p class="hint">Verde: cumplido · rojo: el día ya pasó y no se marcó · el día de hoy está resaltado. ${S.esAdmin ? "Solo el administrador agrega, edita o borra objetivos." : ""}</p>`}`;
+}
+async function guardarProdItems(items){
+  const P = S.prod; const lun = P.lunes;
+  P.doc = { ...(P.doc || {}), items }; render(true);
+  try { await S.db.doc("produccion/" + lun).set({ semana: lun, items, at: Date.now(), ...(S.uid ? { por: S.uid } : {}) }); } catch(e){ failed(e); }
+}
+async function prodClick(t){
+  const P = S.prod;
+  if (t.dataset.prodsem != null){ const n = Number(t.dataset.prodsem); P.lunes = n === 0 ? lunesDe(today()) : sumarDias(P.lunes, n); P.add = P.edit = P.atr = null; render(); return true; }
+  if (t.dataset.prodadd){ P.add = t.dataset.prodadd; P.edit = null; P.atr = null; render(); const [f, d] = t.dataset.prodadd.split("-"); const el = document.getElementById(`pf-m-${f}-${d}`); if (el) el.focus(); return true; }
+  if (t.dataset.prodedit){ P.edit = t.dataset.prodedit; P.add = null; P.atr = null; render(); const el = document.getElementById(`pf-m-${t.dataset.prodedit}`); if (el) el.focus(); return true; }
+  if (t.dataset.prodcancel){ P.add = P.edit = P.atr = null; render(); return true; }
+  if (t.dataset.prodsave){
+    if (!S.esAdmin) return true;
+    const k = t.dataset.prodsave; const m = document.getElementById("pf-m-" + k), c = document.getElementById("pf-c-" + k), n = document.getElementById("pf-n-" + k);
+    const modelo = (m && m.value.trim()) || ""; const cant = Number(c && c.value);
+    if (!modelo){ toast("Escribí el modelo.", null, true); if (m) m.focus(); return true; }
+    if (!(cant > 0)){ toast("Escribí la cantidad.", null, true); if (c) c.focus(); return true; }
+    const nota = (n && n.value.trim()) || "";
+    const items = [...prodSemana()];
+    if (t.dataset.item){ const i = items.findIndex(x => x.id === t.dataset.item); if (i >= 0) items[i] = { ...items[i], modelo, cant, nota }; }
+    else items.push({ id: prodId(), fila: t.dataset.fila, dia: Number(t.dataset.dia), modelo, cant, nota });
+    P.add = P.edit = null; await guardarProdItems(items); return true;
+  }
+  if (t.dataset.proddel){
+    if (!S.esAdmin) return true;
+    const it = prodSemana().find(x => x.id === t.dataset.proddel); if (!it) return true;
+    await guardarProdItems(prodSemana().filter(x => x.id !== it.id));
+    const h = P.hechos.get(it.id); if (h) S.db.collection("prodHecho").doc(h.id).delete().catch(() => {});
+    toast(`Se borró ${esc(it.modelo)} – ${nfmt(Number(it.cant)||0)}`); return true;
+  }
+  if (t.dataset.prodcopiar){
+    if (!S.esAdmin) return true;
+    try { const sn = await S.db.doc("produccion/" + sumarDias(P.lunes, -7)).get(); const prev = sn.exists ? (sn.data().items || []) : [];
+      if (!prev.length){ toast("La semana anterior no tiene objetivos.", null, true); return true; }
+      await guardarProdItems(prev.map(x => ({ ...x, id: prodId() }))); toast(`Se copiaron ${prev.length} objetivos. Editalos si cambia algo.`); } catch(e){ failed(e); }
+    return true;
+  }
+  if (t.dataset.atradd != null){ P.atr = Number(t.dataset.atradd); P.add = P.edit = null; render(); const el = document.getElementById("atr-c"); if (el) el.focus(); return true; }
+  if (t.dataset.atrsave != null){
+    const c = document.getElementById("atr-c"), m = document.getElementById("atr-m");
+    const caja = (c && c.value.trim().toUpperCase()) || "", motivo = (m && m.value.trim()) || "";
+    if (!caja && !motivo){ toast("Escribí la caja o el motivo.", null, true); if (c) c.focus(); return true; }
+    P.atr = null; render();
+    try { await S.db.collection("prodAtraso").add({ semana: P.lunes, dia: Number(t.dataset.atrsave), caja, motivo, at: Date.now(), ...(S.uid ? { por: S.uid } : {}) }); } catch(e){ failed(e); }
+    return true;
+  }
+  if (t.dataset.atrdel){ try { await S.db.collection("prodAtraso").doc(t.dataset.atrdel).delete(); } catch(e){ failed(e); } return true; }
+  return false;
+}
+async function prodToggle(t){
+  const P = S.prod; const id = t.dataset.prodok; const it = prodSemana().find(x => x.id === id); if (!it) return;
+  const h = P.hechos.get(id);
+  if (t.checked && !h){
+    const ahora = new Date(); const hora = String(ahora.getHours()).padStart(2,"0") + ":" + String(ahora.getMinutes()).padStart(2,"0");
+    const doc = { semana: P.lunes, item: id, fila: it.fila, dia: it.dia, modelo: it.modelo, cant: Number(it.cant) || 0, f: today(), hora, at: Date.now(), ...(S.uid ? { por: S.uid } : {}) };
+    P.hechos.set(id, { id: `${P.lunes}_${id}`, ...doc }); render(true);
+    try { await S.db.collection("prodHecho").doc(`${P.lunes}_${id}`).set(doc); toast(`Cumplido: ${esc(it.modelo)} – ${nfmt(doc.cant)}`); } catch(e){ P.hechos.delete(id); failed(e); render(true); }
+  } else if (!t.checked && h){
+    P.hechos.delete(id); render(true);
+    try { await S.db.collection("prodHecho").doc(h.id).delete(); } catch(e){ P.hechos.set(id, h); failed(e); render(true); }
+  }
+}
+
 /* ---------- Pago a ensambladores ---------- */
 const NO_PAGO = ["Interno", "Stock"];
 const redondeo500 = v => Math.ceil(v / 500) * 500;
@@ -1906,7 +2107,7 @@ function render(keepFocus){
   renderTabs();
   const ae = document.activeElement; const focusQ = keepFocus && ae && ae.id; const sel = ae && ae.selectionStart;
   const p = curProc();
-  $("#main").innerHTML = S.tab==="stock" ? renderStock() : S.tab==="despacho" ? renderDespacho() : p ? renderProceso(p) : GRUPOS[S.tab] ? renderTerminadas(GRUPOS[S.tab]) : S.tab==="pagos" ? renderPagos() : S.tab==="insumos" ? renderInsumos() : S.tab==="estadisticas" ? renderEstadisticas() : S.tab==="seguimiento" ? renderSeguimiento() : S.tab==="imprimir" ? renderImprimir() : renderAlta();
+  $("#main").innerHTML = S.tab==="produccion" ? renderProduccion() : S.tab==="stock" ? renderStock() : S.tab==="despacho" ? renderDespacho() : p ? renderProceso(p) : GRUPOS[S.tab] ? renderTerminadas(GRUPOS[S.tab]) : S.tab==="pagos" ? renderPagos() : S.tab==="insumos" ? renderInsumos() : S.tab==="estadisticas" ? renderEstadisticas() : S.tab==="seguimiento" ? renderSeguimiento() : S.tab==="imprimir" ? renderImprimir() : renderAlta();
   if (focusQ){ const el = document.getElementById(focusQ); if (el){ el.focus(); try{ el.setSelectionRange(sel,sel);}catch(e){} } }
   renderDrawer();
   $("#dot").className = "dot" + (S.loaded && !S.stale ? " live" : "");
@@ -2025,6 +2226,7 @@ function failed(e){
 /* ---------- events ---------- */
 document.addEventListener("click", async ev => {
   const t = ev.target.closest("button, .drawer-bg"); if (!t) return;
+  if (t.dataset && Object.keys(t.dataset).some(k => /^(prod|atr)/.test(k))){ prodClick(t); return; }
   if (t.dataset.info){ const id = t.dataset.info; if (S.info.has(id)){ S.info.delete(id); if (S.editInfo===id) S.editInfo=null; } else { S.info.add(id); if (!(S.cajas.get(id)?.colores||[]).length && S.canWrite){ S.editInfo = id; S.editRows = [{color:"",cant:""}]; } } render(true); return; }
   if (t.dataset.infoedit){ const c = S.cajas.get(t.dataset.infoedit); S.editInfo = t.dataset.infoedit; S.editRows = (c.colores||[]).map(x=>({color:x.color, patilla:x.patilla||"", cristal:x.cristal||"", cant:x.cant})); if (!S.editRows.length) S.editRows = [{color:"",cant:""}]; render(); const f = document.getElementById("ib-0-c"); if (f) f.focus(); return; }
   if (t.dataset.addrow){ S.editRows.push({color:"",cant:""}); render(); const f = document.getElementById(`ib-${S.editRows.length-1}-c`); if (f) f.focus(); return; }
@@ -2118,6 +2320,7 @@ document.addEventListener("input", ev => {
 });
 document.addEventListener("change", ev => {
   const t = ev.target;
+  if (t.dataset && t.dataset.prodok){ prodToggle(t); return; }
   if (t.id === "pagoDesde" || t.id === "pagoHasta"){ if (t.value){ if (t.id === "pagoDesde") S.pago.desde = t.value; else S.pago.hasta = t.value; if (S.pago.desde > S.pago.hasta){ const x = S.pago.desde; S.pago.desde = S.pago.hasta; S.pago.hasta = x; } } render(); return; }
   if (t.id === "pagoTodos"){ S.pago.todos = t.checked; render(); return; }
   if (t.id === "precioReceta" || t.id === "precioSol"){ const v = Math.max(0, Number(t.value) || 0); S.precios = { ...S.precios, [t.id === "precioReceta" ? "receta" : "sol"]: v }; render(true);
@@ -2133,7 +2336,7 @@ document.addEventListener("change", ev => {
   if (t.dataset && t.dataset.base){ if (t.value) S.baseSel[t.dataset.base] = t.value; else delete S.baseSel[t.dataset.base]; render(true); return; }
   if (t.id === "linea"){ S.linea = t.value === "sol" ? "sol" : "receta"; try{localStorage.setItem("cu.linea",S.linea);}catch(e){}
     S.sel.clear(); S.q = ""; S.shown = PAGE; S.verPlanilla = false; S.confirmDesp = false; S.printPed = null; S.printExcl.clear();
-    if (!tabsLinea().some(p=>p.k===S.tab) && !["seguimiento","alta","imprimir","estadisticas","insumos","pagos"].includes(S.tab) && !(S.tab==="stock" && S.linea==="sol")) S.tab = "frentes";
+    if (!tabsLinea().some(p=>p.k===S.tab) && !["produccion","seguimiento","alta","imprimir","estadisticas","insumos","pagos"].includes(S.tab) && !(S.tab==="stock" && S.linea==="sol")) S.tab = "frentes";
     render(); return; }
   if (t.dataset && t.dataset.incl){ if (t.checked) S.printExcl.delete(t.dataset.incl); else S.printExcl.add(t.dataset.incl); render(); return; }
   if (t.id === "printAll"){ const p = pedidosActivos().find(x=>x.ped===S.printPed); if (p) p.cajas.forEach(c => t.checked ? S.printExcl.delete(c.codigo) : S.printExcl.add(c.codigo)); render(); return; }
@@ -2156,6 +2359,8 @@ document.addEventListener("change", ev => {
 document.addEventListener("keydown", ev => {
   if (ev.key === "Escape" && S.drawer){ S.drawer = null; renderDrawer(); return; }
   if (ev.target.id === "q" && ev.key === "Enter") ev.preventDefault();
+  if (ev.key === "Enter" && ev.target.closest && ev.target.closest(".pform")){ ev.preventDefault(); const b = ev.target.closest(".pform").querySelector("[data-prodsave],[data-atrsave]"); if (b) b.click(); return; }
+  if (ev.key === "Escape" && (S.prod.add || S.prod.edit || S.prod.atr != null)){ S.prod.add = S.prod.edit = S.prod.atr = null; render(); return; }
   if (ev.target.dataset && ev.target.dataset.ci != null && ev.key === "Enter"){ ev.preventDefault(); const b = document.querySelector(`[data-infosave="${CSS.escape(S.editInfo||"")}"]`); if (b) b.click(); }
 });
 window.addEventListener("hashchange", () => { const h = location.hash.slice(1); if (h && h !== S.tab){ S.tab = h; render(); } });
@@ -2166,13 +2371,14 @@ async function start(){
   [S.rep.desde, S.rep.hasta] = rangoRapido("semana");
   [S.est.desde, S.est.hasta] = rangoEst("mes");
   [S.pago.desde, S.pago.hasta] = rangoRapido("semana");
-  if (!tabsLinea().some(p=>p.k===S.tab) && S.tab!=="seguimiento" && S.tab!=="alta" && S.tab!=="imprimir" && S.tab!=="estadisticas" && S.tab!=="insumos" && S.tab!=="pagos" && !(S.tab==="stock" && S.linea==="sol")) S.tab = "frentes";
+  S.prod.lunes = lunesDe(today());
+  if (!tabsLinea().some(p=>p.k===S.tab) && S.tab!=="produccion" && S.tab!=="seguimiento" && S.tab!=="alta" && S.tab!=="imprimir" && S.tab!=="estadisticas" && S.tab!=="insumos" && S.tab!=="pagos" && !(S.tab==="stock" && S.linea==="sol")) S.tab = "produccion";
   render();
   if (!window.claude || !window.claude.use){ S.error = "Abrí esta página en Claude para conectarte"; render(); return; }
   const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
   S.db = db; S.user = user;
   if (!db){ S.error = "Iniciá sesión para ver las cajas"; render(); return; }
-  if (user){ try { S.uid = await user.id(); } catch(e){} try { const w = await user.can("data.write"); if (w === false) S.canWrite = false; } catch(e){} }
+  if (user){ try { S.uid = await user.id(); } catch(e){} try { const w = await user.can("data.write"); if (w === false) S.canWrite = false; } catch(e){} try { S.esAdmin = !!(await user.canEdit()); } catch(e){} }
   const timer = setTimeout(()=>{ S.stale = true; render(true); }, 10000);
   for (const lin of ["receta","sol"]) db.doc(carritoPath(lin)).onSnapshot(sn => { if (sn.exists){ const d = sn.data(); S.carritos[lin] = { ...CARRITO_VACIO(), ...d, items: [...(d.items||[])], cats: { ...(d.cats||{}) } }; render(true); } }, () => {});
   db.collection("stock").onSnapshot(sn => { S.stock = new Map(sn.docs.map(d => [d.id, { id: d.id, ...d.data() }])); render(true); }, () => {});
