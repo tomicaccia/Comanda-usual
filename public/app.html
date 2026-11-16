@@ -599,7 +599,7 @@ const CLIENTES = {"01":"Mario","02":"Córdoba","03":"D.o.s","04":"Mar del Plata"
 const RX = /^([A-Z0-9]{2})-(\d{8})-(\d{3})(?:-(\d{1,2}))?$/;
 const PAGE = 60;
 
-const S = { tab: "produccion", esAdmin: false, prod: { lunes: "", key: "", doc: null, hechos: new Map(), atrasos: [], loading: true, unsub: null, add: null, edit: null, atr: null }, q: "", cajas: new Map(), loaded: false, stale: false, error: null,
+const S = { tab: "produccion", esAdmin: false, seg: { modo: "activas", desde: "", hasta: "", key: "", rows: [], loading: false, error: false, truncado: false }, prod: { lunes: "", key: "", doc: null, hechos: new Map(), atrasos: [], loading: true, unsub: null, add: null, edit: null, atr: null }, q: "", cajas: new Map(), loaded: false, stale: false, error: null,
   db: null, user: null, uid: null, canWrite: true, busy: new Set(), sel: new Set(), bulkBusy: null, pago: { desde: "", hasta: "", key: "", rows: [], loading: false, unsub: null, todos: false }, precios: { receta: 80, sol: 50 }, insumos: new Map(), insMovs: [], insVer: {}, est: { modo: "pedido", desde: "", hasta: "", linea: "todas", dist: "", modelo: "", color: "", lente: "", base: "", cajas: [], key: "", loading: false }, man: { codigo: "", rows: [{ color: "", seg: "", cant: "" }], lista: [], creando: null }, plVista: "previa", baseSel: {}, rep: { desde: "", hasta: "", resp: "", key: "", rows: [], loading: false, unsub: null }, filtroProc: {}, stock: new Map(), movs: [], carritos: { receta: { items: [], bultoActual: 1, cliente: "", remito: "", fecha: "", cats: {} }, sol: { items: [], bultoActual: 1, cliente: "", remito: "", fecha: "", cats: {} } }, linea: "receta", planillas: [], verPlanilla: false, confirmDesp: false, confirmVaciar: false, despBusy: null, printPed: null, printFmt: "a4x10", printExcl: new Set(), creado: null, info: new Set(), editInfo: null, editRows: [], shown: PAGE, resp: {}, recent: [], drawer: null, names: {} };
 Object.defineProperty(S, "carrito", { get(){ return S.carritos[S.linea]; }, set(v){ S.carritos[S.linea] = v; } });
 try { const l = localStorage.getItem("cu.linea"); if (l === "sol" || l === "receta") S.linea = l; } catch(e) {}
@@ -838,16 +838,46 @@ function renderTerminadas(g){
         return `<tr><td>${esc(fechaAR(r.f))}</td><td class="c"><button class="code" style="font-size:13px" data-open="${esc(r.caja)}">${esc(r.caja)}</button></td><td>${esc(r.r||"—")}</td><td class="r">${esc(r.cant ?? "—")}</td><td>${puede?`<button class="btn" style="padding:4px 10px" data-undo="${esc(r.caja)}" data-k="${g.fin}">Volver a En proceso</button>`:""}</td></tr>`; }).join("")}
     </tbody></table></div>`}`;
 }
+async function cargarSegDesp(force){
+  const G = S.seg; if (!S.db) return;
+  const key = `${G.desde}|${G.hasta}`; if (!force && G.key === key) return;
+  G.key = key; G.loading = true; G.error = false;
+  try { const sn = await S.db.collection("cajas").where("fDesp", ">=", G.desde).where("fDesp", "<=", G.hasta).limit(1000).get();
+    if (G.key !== key) return; G.rows = sn.docs.map(d => ({ ...d.data(), codigo: d.data().codigo || d.id })); G.truncado = sn.size >= 1000; }
+  catch(e){ G.error = true; G.rows = []; }
+  G.loading = false; if (S.tab === "seguimiento") render(true);
+}
+function celdasProc(c){
+  return tabsLinea().map(p=>GRUPOS[p.k]&&aplica(p,c)?(()=>{const g=GRUPOS[p.k]; const e=estado(g,c); return e==="terminada"||(done(c,g.fin))?`<td class="y">${esc(fmt(c.procesos[g.fin].f))}</td>`:e==="proceso"?`<td class="pp">En proc.</td>`:e==="lista"?`<td class="ls">Lista</td>`:`<td class="n">—</td>`;})():!aplica(p,c)?`<td class="na">·</td>`:done(c,p.k)?`<td class="y">${esc(fmt(c.procesos[p.k].f))}</td>`:`<td class="n">—</td>`).join("");
+}
 function renderSeguimiento(){
-  const q = norm(S.q);
+  const q = norm(S.q); const G = S.seg; const desp = S.esAdmin && G.modo === "despachadas";
+  const buscador = `<div class="scan"><div class="field"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Filtrar por código, cliente o modelo" value="${esc(S.q)}" aria-label="Filtrar cajas"></div>
+    ${S.esAdmin ? `<select id="segModo" aria-label="Qué cajas ver"><option value="activas" ${!desp?"selected":""}>Activas</option><option value="despachadas" ${desp?"selected":""}>Despachadas</option></select>` : ""}</div>`;
+  if (desp){
+    cargarSegDesp();
+    const list = (G.rows || []).filter(c => enLinea(c) && match(c, q)).sort((a,b) => String(b.fDesp||"").localeCompare(String(a.fDesp||"")) || a.codigo.localeCompare(b.codigo));
+    const shown = list.slice(0, S.shown*3); const unid = list.reduce((a,c)=>a+(Number(c.cantidad)||0),0);
+    const quick = [["mes","Este mes"],["mesant","Mes pasado"],["3m","Últimos 3 meses"]];
+    const diasDesp = c => { if (!c.pedido || !c.fDesp) return null; return Math.round((new Date(c.fDesp+"T00:00") - new Date(c.pedido+"T00:00"))/86400000); };
+    return `<div class="head"><div><h2>Seguimiento · despachadas</h2><p>${G.loading ? "Buscando…" : `${list.length} cajas despachadas · ${unid.toLocaleString("es-AR")} u.`} · por fecha de despacho</p></div><button class="btn" id="segRefresh">Actualizar</button></div>
+    ${buscador}
+    <div class="filtros"><div class="f-quick">${quick.map(([id,n]) => { const [d,h] = rangoEst(id); return `<button class="btn ${G.desde===d&&G.hasta===h?"on":""}" data-segr="${id}">${n}</button>`; }).join("")}</div>
+      <label>Desde <input type="date" id="segDesde" value="${esc(G.desde)}"></label><label>Hasta <input type="date" id="segHasta" value="${esc(G.hasta)}"></label></div>
+    ${G.loading ? `<div class="empty"><b>Cargando…</b></div>` : G.error ? `<div class="empty"><b>No se pudieron cargar las despachadas</b>Tocá Actualizar para reintentar.</div>` : !list.length ? `<div class="empty"><b>No hay cajas despachadas${q?" con ese filtro":" en ese período"}</b>Probá con otras fechas.</div>` : `
+    ${G.truncado ? `<div class="hint warn">Hay más de 1000 cajas en el período: se muestran las primeras 1000. Achicá las fechas.</div>` : ""}
+    <div class="tablewrap"><table><thead><tr><th>Caja</th><th>Despacho</th><th>Remito</th><th>Bulto</th><th title="Días del pedido al despacho">Días</th><th>Cant.</th>${tabsLinea().filter(p=>p.k!=="despacho").map(p=>`<th title="${esc(p.n)}">${esc(p.corto)}</th>`).join("")}</tr></thead><tbody>
+    ${shown.map(c => { const e = (c.procesos && c.procesos.despacho) || {}; return `<tr class="${distClase(c)}"><td class="c"><button class="code" style="font-size:13px" data-open="${esc(c.codigo)}">${esc(c.codigo)}</button></td><td class="y">${esc(fmt(c.fDesp))}</td><td>${esc(e.remito || "—")}</td><td>${esc(e.bulto ?? "—")}</td><td>${diasDesp(c) ?? "—"}</td><td>${c.cantOriginal ?? c.cantidad ?? "—"}</td>${celdasProc(c).split("</td>").slice(0, -1).filter((x,i)=>tabsLinea()[i].k!=="despacho").map(x=>x+"</td>").join("")}</tr>`; }).join("")}
+    </tbody></table></div>${list.length>shown.length?`<div class="more"><button class="btn" id="more">Ver más (quedan ${list.length-shown.length})</button></div>`:""}`}`;
+  }
   const list = [...S.cajas.values()].filter(c=>c.activa && enLinea(c) && match(c,q)).sort((a,b)=>(a.pedido||"").localeCompare(b.pedido||"")||a.codigo.localeCompare(b.codigo));
   const shown = list.slice(0, S.shown*3);
   return `<div class="head"><div><h2>Seguimiento</h2><p>${list.length} cajas activas · en qué paso está cada una</p></div></div>
-  <div class="scan"><div class="field"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-    <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Filtrar por código, cliente o modelo" value="${esc(S.q)}" aria-label="Filtrar cajas"></div></div>
+  ${buscador}
   ${!S.loaded?`<div class="empty"><b>Cargando…</b></div>`:!list.length?`<div class="empty"><b>No hay cajas activas${q?" con ese filtro":""}</b></div>`:
   `<div class="tablewrap"><table><thead><tr><th>Caja</th><th>Días</th><th>Cant.</th>${tabsLinea().map(p=>`<th title="${esc(p.n)}">${esc(p.corto)}</th>`).join("")}</tr></thead><tbody>
-  ${shown.map(c=>`<tr class="${distClase(c)}"><td class="c"><button class="code" style="font-size:13px" data-open="${esc(c.codigo)}">${esc(c.codigo)}</button></td><td>${dias(c)??"—"}</td><td>${c.cantidad??"—"}</td>${tabsLinea().map(p=>GRUPOS[p.k]&&aplica(p,c)?(()=>{const g=GRUPOS[p.k]; const e=estado(g,c); return e==="terminada"?`<td class="y">${esc(fmt(c.procesos[g.fin].f))}</td>`:e==="proceso"?`<td class="pp">En proc.</td>`:e==="lista"?`<td class="ls">Lista</td>`:`<td class="n">—</td>`;})():!aplica(p,c)?`<td class="na">·</td>`:done(c,p.k)?`<td class="y">${esc(fmt(c.procesos[p.k].f))}</td>`:`<td class="n">—</td>`).join("")}</tr>`).join("")}
+  ${shown.map(c=>`<tr class="${distClase(c)}"><td class="c"><button class="code" style="font-size:13px" data-open="${esc(c.codigo)}">${esc(c.codigo)}</button></td><td>${dias(c)??"—"}</td><td>${c.cantidad??"—"}</td>${celdasProc(c)}</tr>`).join("")}
   </tbody></table></div>${list.length>shown.length?`<div class="more"><button class="btn" id="more">Ver más (quedan ${list.length-shown.length})</button></div>`:""}`}`;
 }
 function parseAlta(txt, cantDef){
@@ -2227,6 +2257,8 @@ function failed(e){
 document.addEventListener("click", async ev => {
   const t = ev.target.closest("button, .drawer-bg"); if (!t) return;
   if (t.dataset && Object.keys(t.dataset).some(k => /^(prod|atr)/.test(k))){ prodClick(t); return; }
+  if (t.dataset && t.dataset.segr){ [S.seg.desde, S.seg.hasta] = rangoEst(t.dataset.segr); S.shown = PAGE; render(); return; }
+  if (t.id === "segRefresh"){ cargarSegDesp(true); render(); return; }
   if (t.dataset.info){ const id = t.dataset.info; if (S.info.has(id)){ S.info.delete(id); if (S.editInfo===id) S.editInfo=null; } else { S.info.add(id); if (!(S.cajas.get(id)?.colores||[]).length && S.canWrite){ S.editInfo = id; S.editRows = [{color:"",cant:""}]; } } render(true); return; }
   if (t.dataset.infoedit){ const c = S.cajas.get(t.dataset.infoedit); S.editInfo = t.dataset.infoedit; S.editRows = (c.colores||[]).map(x=>({color:x.color, patilla:x.patilla||"", cristal:x.cristal||"", cant:x.cant})); if (!S.editRows.length) S.editRows = [{color:"",cant:""}]; render(); const f = document.getElementById("ib-0-c"); if (f) f.focus(); return; }
   if (t.dataset.addrow){ S.editRows.push({color:"",cant:""}); render(); const f = document.getElementById(`ib-${S.editRows.length-1}-c`); if (f) f.focus(); return; }
@@ -2321,6 +2353,8 @@ document.addEventListener("input", ev => {
 document.addEventListener("change", ev => {
   const t = ev.target;
   if (t.dataset && t.dataset.prodok){ prodToggle(t); return; }
+  if (t.id === "segModo"){ S.seg.modo = t.value; S.shown = PAGE; render(); return; }
+  if (t.id === "segDesde" || t.id === "segHasta"){ if (t.value){ if (t.id === "segDesde") S.seg.desde = t.value; else S.seg.hasta = t.value; if (S.seg.desde > S.seg.hasta){ const x = S.seg.desde; S.seg.desde = S.seg.hasta; S.seg.hasta = x; } } S.shown = PAGE; render(); return; }
   if (t.id === "pagoDesde" || t.id === "pagoHasta"){ if (t.value){ if (t.id === "pagoDesde") S.pago.desde = t.value; else S.pago.hasta = t.value; if (S.pago.desde > S.pago.hasta){ const x = S.pago.desde; S.pago.desde = S.pago.hasta; S.pago.hasta = x; } } render(); return; }
   if (t.id === "pagoTodos"){ S.pago.todos = t.checked; render(); return; }
   if (t.id === "precioReceta" || t.id === "precioSol"){ const v = Math.max(0, Number(t.value) || 0); S.precios = { ...S.precios, [t.id === "precioReceta" ? "receta" : "sol"]: v }; render(true);
@@ -2372,6 +2406,7 @@ async function start(){
   [S.est.desde, S.est.hasta] = rangoEst("mes");
   [S.pago.desde, S.pago.hasta] = rangoRapido("semana");
   S.prod.lunes = lunesDe(today());
+  [S.seg.desde, S.seg.hasta] = rangoEst("mes");
   if (!tabsLinea().some(p=>p.k===S.tab) && S.tab!=="produccion" && S.tab!=="seguimiento" && S.tab!=="alta" && S.tab!=="imprimir" && S.tab!=="estadisticas" && S.tab!=="insumos" && S.tab!=="pagos" && !(S.tab==="stock" && S.linea==="sol")) S.tab = "produccion";
   render();
   if (!window.claude || !window.claude.use){ S.error = "Abrí esta página en Claude para conectarte"; render(); return; }
